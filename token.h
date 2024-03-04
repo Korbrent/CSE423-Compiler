@@ -1,9 +1,9 @@
 /**
  * @file token.h 
  * @author Korbin Shelley
- * @brief type table header for the lexical analyzer
- * @version lab1
- * @date 2024-01-26
+ * @brief This file contains the token structure and function prototypes for token.c
+ * @version hw3
+ * @date Feb 19, 2024
  * 
  */
 #ifndef TOKEN_H
@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
+// Struct containing token information
 struct token {
     int category;   /* int code returned by yylex() */
     char *text;     /* text of the token */
@@ -25,5 +26,7 @@ struct token {
 struct token *buildToken(int type, char *text, int lineno, char *filename);
 void string_literal_parser(char *input, char *output);
 int char_literal_parser(char *input);
+
+void tokenfree(struct token *t);
 
 #endif

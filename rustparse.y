@@ -31,6 +31,8 @@
 // #define YYSTYPE struct node *
 extern int yylex();
 extern void yyerror(char const *s);
+void __yyerror(char const *s, int yystate);
+#define yyerror(s) __yyerror(s, yystate)
 
 %}
 %debug
@@ -39,6 +41,7 @@ extern void yyerror(char const *s);
         struct tree *treeptr;
 }
 
+%token<treeptr> TILDE
 %token<treeptr> EQUAL
 %token<treeptr> DOUBLE_EQUAL
 %token<treeptr> BANG
@@ -165,6 +168,8 @@ extern void yyerror(char const *s);
 %token<treeptr> SHEBANG
 %token<treeptr> SHEBANG_LINE
 %token<treeptr> STATIC_LIFETIME
+
+%token LEXICAL_ERROR // Only used by the lexer to indicate an error.
 
  /*
    Quoting from the Bison manual:
@@ -478,8 +483,8 @@ extern void yyerror(char const *s);
 // Part 1: Items and attributes
 ////////////////////////////////////////////////////////////////////////
 
-crate   : maybe_shebang inner_attrs maybe_mod_items  { $$ = treealloc(CRATE_R, "crate", 3, $1, $2, $3); }
-        | maybe_shebang maybe_mod_items  { $$ = treealloc(CRATE_R, "crate", 2, $1, $2); }
+crate   : maybe_shebang inner_attrs maybe_mod_items     { setTreeRoot(treealloc(CRATE_R, "crate", 3, $1, $2, $3)); }
+        | maybe_shebang maybe_mod_items                 { setTreeRoot(treealloc(CRATE_R, "crate", 2, $1, $2)); }
         ;
 
 maybe_shebang : SHEBANG_LINE            { $$ = $1; }
@@ -494,8 +499,8 @@ inner_attrs : inner_attr                { $$ = $1; }
         | inner_attrs inner_attr        { $$ = treealloc(INNER_ATTRS_R, "inner_attrs", 2, $1, $2); }
         ;
 
-inner_attr : SHEBANG LEFT_BRACKET meta_item RIGHT_BRACKET   { $$ = treealloc(INNER_ATTR_R, "inner_attr", 4, $1, $2, $3, $4); }
-        | INNER_DOC_COMMENT             { $$ = $1; }
+inner_attr : SHEBANG LEFT_BRACKET meta_item RIGHT_BRACKET       { $$ = treealloc(INNER_ATTR_R, "inner_attr", 4, $1, $2, $3, $4); }
+        | INNER_DOC_COMMENT                                     { $$ = $1; }
         ;
 
 maybe_outer_attrs : outer_attrs         { $$ = $1; }
@@ -506,12 +511,12 @@ outer_attrs : outer_attr                { $$ = $1; }
         | outer_attrs outer_attr        { $$ = treealloc(OUTER_ATTRS_R, "outer_attrs", 2, $1, $2); }
         ;
 
-outer_attr : HASH LEFT_BRACKET meta_item RIGHT_BRACKET    { $$ = treealloc(OUTER_ATTR_R, "outer_attr", 4, $1, $2, $3, $4); }
-        | OUTER_DOC_COMMENT             { $$ = $1; }
+outer_attr : HASH LEFT_BRACKET meta_item RIGHT_BRACKET  { $$ = treealloc(OUTER_ATTR_R, "outer_attr", 4, $1, $2, $3, $4); }
+        | OUTER_DOC_COMMENT                             { $$ = $1; }
         ;
 
-meta_item : ident                       { $$ = $1; }
-        | ident EQUAL lit               { $$ = treealloc(META_ITEM_R, "meta_item", 3, $1, $2, $3); }
+meta_item : ident                                       { $$ = $1; }
+        | ident EQUAL lit                               { $$ = treealloc(META_ITEM_R, "meta_item", 3, $1, $2, $3); }
         | ident LEFT_PAREN meta_seq RIGHT_PAREN         { $$ = treealloc(META_ITEM_R, "meta_item", 4, $1, $2, $3, $4); }
         | ident LEFT_PAREN meta_seq COMMA RIGHT_PAREN   { $$ = treealloc(META_ITEM_R, "meta_item", 5, $1, $2, $3, $4, $5); }
         ;
@@ -1004,7 +1009,7 @@ named_arg : ident                       { $$ = $1; }
         | AMPERSAND UNDERSCORE          { $$ = treealloc(NAMED_ARG_R, "named_arg", 2, $1, $2); }
         | DOUBLE_AMPERSAND ident        { $$ = treealloc(NAMED_ARG_R, "named_arg", 2, $1, $2); }
         | DOUBLE_AMPERSAND UNDERSCORE   { $$ = treealloc(NAMED_ARG_R, "named_arg", 2, $1, $2); }
-        | MUT ident         { $$ = treealloc(NAMED_ARG_R, "named_arg", 2, $1, $2); }
+        | MUT ident                     { $$ = treealloc(NAMED_ARG_R, "named_arg", 2, $1, $2); }
         ;
 
 ret_ty : ARROW BANG         { $$ = treealloc(RET_TY_R, "ret_ty", 2, $1, $2); }
@@ -1443,34 +1448,34 @@ stmts : stmt           { $$ = $1; }
         | stmts stmt     { $$ = treealloc(STMTS_R, "stmts", 2, $1, $2); }
         ;
 
-stmt : maybe_outer_attrs let     { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
-        |                 stmt_item { $$ = $1; }
-        |             PUB stmt_item { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
-        | outer_attrs     stmt_item { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
-        | outer_attrs PUB stmt_item { $$ = treealloc(STMT_R, "stmt", 3, $1, $2, $3); }
-        | full_block_expr { $$ = $1; }
-        | maybe_outer_attrs block   { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
-        |             nonblock_expr SEMICOLON { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
-        | outer_attrs nonblock_expr SEMICOLON { $$ = treealloc(STMT_R, "stmt", 3, $1, $2, $3); }
-        | SEMICOLON                   { $$ = $1; }
+stmt : maybe_outer_attrs let                    { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
+        |                 stmt_item             { $$ = $1; }
+        |             PUB stmt_item             { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
+        | outer_attrs     stmt_item             { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
+        | outer_attrs PUB stmt_item             { $$ = treealloc(STMT_R, "stmt", 3, $1, $2, $3); }
+        | full_block_expr                       { $$ = $1; }
+        | maybe_outer_attrs block               { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
+        |             nonblock_expr SEMICOLON   { $$ = treealloc(STMT_R, "stmt", 2, $1, $2); }
+        | outer_attrs nonblock_expr SEMICOLON   { $$ = treealloc(STMT_R, "stmt", 3, $1, $2, $3); }
+        | SEMICOLON                             { $$ = $1; }
         ;
 
-maybe_exprs : exprs { $$ = $1; }
-        | exprs COMMA { $$ = treealloc(MAYBE_EXPRS_R, "maybe_exprs", 2, $1, $2); }
-        | %empty { $$ = NULL; }
+maybe_exprs : exprs                             { $$ = $1; }
+        | exprs COMMA                           { $$ = treealloc(MAYBE_EXPRS_R, "maybe_exprs", 2, $1, $2); }
+        | %empty                                { $$ = NULL; }
         ;
 
-maybe_expr : expr { $$ = $1; }
-        | %empty { $$ = NULL; }
+maybe_expr : expr                                                       { $$ = $1; }
+        | %empty                                                        { $$ = NULL; }
         ;
 
-exprs : expr                                         { $$ = $1; }
-        | exprs COMMA expr                             { $$ = treealloc(EXPRS_R, "exprs", 3, $1, $2, $3); }
+exprs : expr                                                            { $$ = $1; }
+        | exprs COMMA expr                                              { $$ = treealloc(EXPRS_R, "exprs", 3, $1, $2, $3); }
         ;
 
-path_expr : path_generic_args_with_colons { $$ = $1; }
-        | DOUBLE_COLON path_generic_args_with_colons      { $$ = treealloc(PATH_EXPR_R, "path_expr", 2, $1, $2); }
-        | SELF DOUBLE_COLON path_generic_args_with_colons { $$ = treealloc(PATH_EXPR_R, "path_expr", 3, $1, $2, $3); }
+path_expr : path_generic_args_with_colons                               { $$ = $1; }
+        | DOUBLE_COLON path_generic_args_with_colons                    { $$ = treealloc(PATH_EXPR_R, "path_expr", 2, $1, $2); }
+        | SELF DOUBLE_COLON path_generic_args_with_colons               { $$ = treealloc(PATH_EXPR_R, "path_expr", 3, $1, $2, $3); }
         ;
 
 // A path with a lifetime and type parameters with double colons before
@@ -1478,30 +1483,30 @@ path_expr : path_generic_args_with_colons { $$ = $1; }
 //
 // These show up in expr context, in order to disambiguate from "less-than"
 // expressions.
-path_generic_args_with_colons : ident                        { $$ = $1; }
-        | SUPER                                              { $$ = $1; }
-        | path_generic_args_with_colons DOUBLE_COLON ident        { $$ = treealloc(PATH_GENERIC_ARGS_WITH_COLONS_R, "path_generic_args_with_colons", 3, $1, $2, $3); }
-        | path_generic_args_with_colons DOUBLE_COLON SUPER        { $$ = treealloc(PATH_GENERIC_ARGS_WITH_COLONS_R, "path_generic_args_with_colons", 3, $1, $2, $3); }
-        | path_generic_args_with_colons DOUBLE_COLON generic_args { $$ = treealloc(PATH_GENERIC_ARGS_WITH_COLONS_R, "path_generic_args_with_colons", 3, $1, $2, $3); }
+path_generic_args_with_colons : ident                                   { $$ = $1; }
+        | SUPER                                                         { $$ = $1; }
+        | path_generic_args_with_colons DOUBLE_COLON ident              { $$ = treealloc(PATH_GENERIC_ARGS_WITH_COLONS_R, "path_generic_args_with_colons", 3, $1, $2, $3); }
+        | path_generic_args_with_colons DOUBLE_COLON SUPER              { $$ = treealloc(PATH_GENERIC_ARGS_WITH_COLONS_R, "path_generic_args_with_colons", 3, $1, $2, $3); }
+        | path_generic_args_with_colons DOUBLE_COLON generic_args       { $$ = treealloc(PATH_GENERIC_ARGS_WITH_COLONS_R, "path_generic_args_with_colons", 3, $1, $2, $3); }
         ;
 
 // the braces-delimited macro is a block_expr so it doesn't appear here
-macro_expr : path_expr BANG maybe_ident parens_delimited_token_trees   { $$ = treealloc(MACRO_EXPR_R, "macro_expr", 4, $1, $2, $3, $4); }
-        | path_expr BANG maybe_ident brackets_delimited_token_trees { $$ = treealloc(MACRO_EXPR_R, "macro_expr", 4, $1, $2, $3, $4); }
+macro_expr : path_expr BANG maybe_ident parens_delimited_token_trees    { $$ = treealloc(MACRO_EXPR_R, "macro_expr", 4, $1, $2, $3, $4); }
+        | path_expr BANG maybe_ident brackets_delimited_token_trees     { $$ = treealloc(MACRO_EXPR_R, "macro_expr", 4, $1, $2, $3, $4); }
         ;
 
 nonblock_expr : lit                                                     { $$ = $1; }
-        | %prec IDENTIFIER path_expr                                         { $$ = $1; }
+        | %prec IDENTIFIER path_expr                                    { $$ = $1; }
         | SELF                                                          { $$ = $1; }
         | macro_expr                                                    { $$ = $1; }
-        | path_expr LEFT_BRACE struct_expr_fields RIGHT_BRACE                          { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 4, $1, $2, $3, $4); }
-        | nonblock_expr QUESTION                                             { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 2, $1, $2); }
+        | path_expr LEFT_BRACE struct_expr_fields RIGHT_BRACE           { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 4, $1, $2, $3, $4); }
+        | nonblock_expr QUESTION                                        { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 2, $1, $2); }
         | nonblock_expr DOT path_generic_args_with_colons               { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 3, $1, $2, $3); }
-        | nonblock_expr DOT INTEGER_LITERAL                                 { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 3, $1, $2, $3); }
-        | nonblock_expr LEFT_BRACKET maybe_expr RIGHT_BRACKET                              { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 4, $1, $2, $3, $4); }
-        | nonblock_expr LEFT_PAREN maybe_exprs RIGHT_PAREN                             { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 4, $1, $2, $3, $4); }
-        | LEFT_BRACKET vec_expr RIGHT_BRACKET                                              { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 3, $1, $2, $3); }
-        | LEFT_PAREN maybe_exprs RIGHT_PAREN                                           { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 3, $1, $2, $3); }
+        | nonblock_expr DOT INTEGER_LITERAL                             { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 3, $1, $2, $3); }
+        | nonblock_expr LEFT_BRACKET maybe_expr RIGHT_BRACKET           { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 4, $1, $2, $3, $4); }
+        | nonblock_expr LEFT_PAREN maybe_exprs RIGHT_PAREN              { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 4, $1, $2, $3, $4); }
+        | LEFT_BRACKET vec_expr RIGHT_BRACKET                           { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 3, $1, $2, $3); }
+        | LEFT_PAREN maybe_exprs RIGHT_PAREN                            { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 3, $1, $2, $3); }
         | CONTINUE                                                      { $$ = $1; }
         | CONTINUE lifetime                                             { $$ = treealloc(NONBLOCK_EXPR_R, "nonblock_expr", 2, $1, $2); }
         | RETURN                                                        { $$ = $1; }
@@ -1550,486 +1555,497 @@ nonblock_expr : lit                                                     { $$ = $
         | nonblock_prefix_expr                                          { $$ = $1; }
         ;
 
-expr : lit                                                 { $$ = $1; }
-     | %prec IDENTIFIER path_expr                          { $$ = $1; }
-     | SELF                                                { $$ = $1; }
-     | macro_expr                                          { $$ = $1; }
-     | path_expr LEFT_BRACE struct_expr_fields RIGHT_BRACE { $$ = treealloc(EXPR_R, "expr", 4, $1, $2, $3, $4);}
-     | expr QUESTION                                       { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
-     | expr DOT path_generic_args_with_colons              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3);}
-     | expr DOT INTEGER_LITERAL                            { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3);}
-     | expr LEFT_BRACKET maybe_expr RIGHT_BRACKET          { $$ = treealloc(EXPR_R, "expr", 4, $1, $2, $3, $4); }
-     | expr LEFT_PAREN maybe_exprs RIGHT_PAREN             { $$ = treealloc(EXPR_R, "expr", 4, $1, $2, $3, $4); }
-     | LEFT_PAREN maybe_exprs RIGHT_PAREN                  { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | LEFT_BRACKET vec_expr RIGHT_BRACKET                 { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | CONTINUE                                            { $$ = $1; }
-     | CONTINUE ident                                      { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
-     | RETURN                                              { $$ = $1; }
-     | RETURN expr                                         { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
-     | BREAK                                               { $$ = $1; }
-     | BREAK ident                                         { $$ = treealloc(EXPR_R, "expr", 2, $1, $2);}
-     | YIELD                                               { $$ = $1; }
-     | YIELD expr                                          { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
-     | expr EQUAL expr                                     { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_LESS_THAN_EQUAL expr                    { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_GREATER_THAN_EQUAL expr                 { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr MINUS_EQUAL expr                               { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr AMPERSAND_EQUAL expr                           { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr PIPE_EQUAL expr                                { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr PLUS_EQUAL expr                                { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr STAR_EQUAL expr                                { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr SLASH_EQUAL expr                               { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr CARET_EQUAL expr                               { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr PERCENT_EQUAL expr                             { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_PIPE expr                               { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_AMPERSAND expr                          { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_EQUAL expr                              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr NOT_EQUAL expr                                 { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr LESS_THAN expr                                 { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr GREATER_THAN expr                              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr LESS_THAN_EQUAL expr                           { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr GREATER_THAN_EQUAL expr                        { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr PIPE expr                                      { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr CARET expr                                     { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr AMPERSAND expr                                 { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_LESS_THAN expr                          { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_GREATER_THAN expr                       { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr PLUS expr                                      { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr MINUS expr                                     { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr STAR expr                                      { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr SLASH expr                                     { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr PERCENT expr                                   { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr DOUBLE_DOT                                     { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
-     | expr DOUBLE_DOT expr                                { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     |      DOUBLE_DOT expr                                { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
-     |      DOUBLE_DOT                                     { $$ = $1; }
-     | expr AS ty                                          { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | expr COLON ty                                       { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
-     | BOX expr                                            { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
-     | expr_qualified_path                                 { $$ = $1; }
-     | block_expr                                          { $$ = $1; }
-     | block                                               { $$ = $1; }
-     | nonblock_prefix_expr                                { $$ = $1; }
+expr : lit                                                              { $$ = $1; }
+     | %prec IDENTIFIER path_expr                                       { $$ = $1; }
+     | SELF                                                             { $$ = $1; }
+     | macro_expr                                                       { $$ = $1; }
+     | path_expr LEFT_BRACE struct_expr_fields RIGHT_BRACE              { $$ = treealloc(EXPR_R, "expr", 4, $1, $2, $3, $4);}
+     | expr QUESTION                                                    { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
+     | expr DOT path_generic_args_with_colons                           { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3);}
+     | expr DOT INTEGER_LITERAL                                         { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3);}
+     | expr LEFT_BRACKET maybe_expr RIGHT_BRACKET                       { $$ = treealloc(EXPR_R, "expr", 4, $1, $2, $3, $4); }
+     | expr LEFT_PAREN maybe_exprs RIGHT_PAREN                          { $$ = treealloc(EXPR_R, "expr", 4, $1, $2, $3, $4); }
+     | LEFT_PAREN maybe_exprs RIGHT_PAREN                               { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | LEFT_BRACKET vec_expr RIGHT_BRACKET                              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | CONTINUE                                                         { $$ = $1; }
+     | CONTINUE ident                                                   { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
+     | RETURN                                                           { $$ = $1; }
+     | RETURN expr                                                      { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
+     | BREAK                                                            { $$ = $1; }
+     | BREAK ident                                                      { $$ = treealloc(EXPR_R, "expr", 2, $1, $2);}
+     | YIELD                                                            { $$ = $1; }
+     | YIELD expr                                                       { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
+     | expr EQUAL expr                                                  { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_LESS_THAN_EQUAL expr                                 { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_GREATER_THAN_EQUAL expr                              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr MINUS_EQUAL expr                                            { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr AMPERSAND_EQUAL expr                                        { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr PIPE_EQUAL expr                                             { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr PLUS_EQUAL expr                                             { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr STAR_EQUAL expr                                             { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr SLASH_EQUAL expr                                            { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr CARET_EQUAL expr                                            { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr PERCENT_EQUAL expr                                          { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_PIPE expr                                            { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_AMPERSAND expr                                       { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_EQUAL expr                                           { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr NOT_EQUAL expr                                              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr LESS_THAN expr                                              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr GREATER_THAN expr                                           { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr LESS_THAN_EQUAL expr                                        { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr GREATER_THAN_EQUAL expr                                     { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr PIPE expr                                                   { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr CARET expr                                                  { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr AMPERSAND expr                                              { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_LESS_THAN expr                                       { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_GREATER_THAN expr                                    { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr PLUS expr                                                   { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr MINUS expr                                                  { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr STAR expr                                                   { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr SLASH expr                                                  { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr PERCENT expr                                                { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr DOUBLE_DOT                                                  { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
+     | expr DOUBLE_DOT expr                                             { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     |      DOUBLE_DOT expr                                             { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
+     |      DOUBLE_DOT                                                  { $$ = $1; }
+     | expr AS ty                                                       { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | expr COLON ty                                                    { $$ = treealloc(EXPR_R, "expr", 3, $1, $2, $3); }
+     | BOX expr                                                         { $$ = treealloc(EXPR_R, "expr", 2, $1, $2); }
+     | expr_qualified_path                                              { $$ = $1; }
+     | block_expr                                                       { $$ = $1; }
+     | block                                                            { $$ = $1; }
+     | nonblock_prefix_expr                                             { $$ = $1; }
      ;
 
-expr_nostruct : lit                                             { $$ = $1; }
-        | %prec IDENTIFIER path_expr                            { $$ = $1; }
-        | SELF                                                  { $$ = $1; }
-        | macro_expr                                            { $$ = $1; }
-        | expr_nostruct QUESTION                                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        | expr_nostruct DOT path_generic_args_with_colons       { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOT INTEGER_LITERAL                     { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct LEFT_BRACKET maybe_expr RIGHT_BRACKET   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 4, $1, $2, $3, $4); }
-        | expr_nostruct LEFT_PAREN maybe_exprs RIGHT_PAREN      { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 4, $1, $2, $3, $4); }
-        | LEFT_BRACKET vec_expr RIGHT_BRACKET                   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | LEFT_PAREN maybe_exprs RIGHT_PAREN                    { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | CONTINUE                                              { $$ = $1; }
-        | CONTINUE ident                                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        | RETURN                                                { $$ = $1; }
-        | RETURN expr                                           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        | BREAK                                                 { $$ = $1; }
-        | BREAK ident                                           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        | YIELD                                                 { $$ = $1; }
-        | YIELD expr                                            { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        | expr_nostruct EQUAL expr_nostruct                     { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_LESS_THAN_EQUAL expr_nostruct    { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_GREATER_THAN_EQUAL expr_nostruct { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct MINUS_EQUAL expr_nostruct               { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct AMPERSAND_EQUAL expr_nostruct           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct PIPE_EQUAL expr_nostruct                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct PLUS_EQUAL expr_nostruct                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct STAR_EQUAL expr_nostruct                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct SLASH_EQUAL expr_nostruct               { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct CARET_EQUAL expr_nostruct               { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct PERCENT_EQUAL expr_nostruct             { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_PIPE expr_nostruct               { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_AMPERSAND expr_nostruct          { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_EQUAL expr_nostruct              { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct NOT_EQUAL expr_nostruct                 { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct LESS_THAN expr_nostruct                 { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct GREATER_THAN expr_nostruct              { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct LESS_THAN_EQUAL expr_nostruct           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct GREATER_THAN_EQUAL expr_nostruct        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct PIPE expr_nostruct                      { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct CARET expr_nostruct                     { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct AMPERSAND expr_nostruct                 { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_LESS_THAN expr_nostruct          { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_GREATER_THAN expr_nostruct       { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct PLUS expr_nostruct                      { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct MINUS expr_nostruct                     { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct STAR expr_nostruct                      { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct SLASH expr_nostruct                     { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct PERCENT expr_nostruct                   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct DOUBLE_DOT               %prec RANGE    { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        | expr_nostruct DOUBLE_DOT expr_nostruct                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        |               DOUBLE_DOT expr_nostruct                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        |               DOUBLE_DOT                              { $$ = $1; }
-        | expr_nostruct AS ty                                   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | expr_nostruct COLON ty                                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
-        | BOX expr                                              { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
-        | expr_qualified_path                                   { $$ = $1; }
-        | block_expr                                            { $$ = $1; }
-        | block                                                 { $$ = $1; }
-        | nonblock_prefix_expr_nostruct                         { $$ = $1; }
+expr_nostruct : lit                                                     { $$ = $1; }
+        | %prec IDENTIFIER path_expr                                    { $$ = $1; }
+        | SELF                                                          { $$ = $1; }
+        | macro_expr                                                    { $$ = $1; }
+        | expr_nostruct QUESTION                                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        | expr_nostruct DOT path_generic_args_with_colons               { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOT INTEGER_LITERAL                             { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct LEFT_BRACKET maybe_expr RIGHT_BRACKET           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 4, $1, $2, $3, $4); }
+        | expr_nostruct LEFT_PAREN maybe_exprs RIGHT_PAREN              { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 4, $1, $2, $3, $4); }
+        | LEFT_BRACKET vec_expr RIGHT_BRACKET                           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | LEFT_PAREN maybe_exprs RIGHT_PAREN                            { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | CONTINUE                                                      { $$ = $1; }
+        | CONTINUE ident                                                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        | RETURN                                                        { $$ = $1; }
+        | RETURN expr                                                   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        | BREAK                                                         { $$ = $1; }
+        | BREAK ident                                                   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        | YIELD                                                         { $$ = $1; }
+        | YIELD expr                                                    { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        | expr_nostruct EQUAL expr_nostruct                             { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_LESS_THAN_EQUAL expr_nostruct            { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_GREATER_THAN_EQUAL expr_nostruct         { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct MINUS_EQUAL expr_nostruct                       { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct AMPERSAND_EQUAL expr_nostruct                   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct PIPE_EQUAL expr_nostruct                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct PLUS_EQUAL expr_nostruct                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct STAR_EQUAL expr_nostruct                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct SLASH_EQUAL expr_nostruct                       { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct CARET_EQUAL expr_nostruct                       { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct PERCENT_EQUAL expr_nostruct                     { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_PIPE expr_nostruct                       { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_AMPERSAND expr_nostruct                  { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_EQUAL expr_nostruct                      { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct NOT_EQUAL expr_nostruct                         { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct LESS_THAN expr_nostruct                         { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct GREATER_THAN expr_nostruct                      { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct LESS_THAN_EQUAL expr_nostruct                   { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct GREATER_THAN_EQUAL expr_nostruct                { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct PIPE expr_nostruct                              { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct CARET expr_nostruct                             { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct AMPERSAND expr_nostruct                         { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_LESS_THAN expr_nostruct                  { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_GREATER_THAN expr_nostruct               { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct PLUS expr_nostruct                              { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct MINUS expr_nostruct                             { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct STAR expr_nostruct                              { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct SLASH expr_nostruct                             { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct PERCENT expr_nostruct                           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct DOUBLE_DOT               %prec RANGE            { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        | expr_nostruct DOUBLE_DOT expr_nostruct                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        |               DOUBLE_DOT expr_nostruct                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        |               DOUBLE_DOT                                      { $$ = $1; }
+        | expr_nostruct AS ty                                           { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | expr_nostruct COLON ty                                        { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 3, $1, $2, $3); }
+        | BOX expr                                                      { $$ = treealloc(EXPR_NOSTRUCT_R, "expr_nostruct", 2, $1, $2); }
+        | expr_qualified_path                                           { $$ = $1; }
+        | block_expr                                                    { $$ = $1; }
+        | block                                                         { $$ = $1; }
+        | nonblock_prefix_expr_nostruct                                 { $$ = $1; }
         ;
 
-nonblock_prefix_expr_nostruct : MINUS expr_nostruct                         {  }
-        | BANG expr_nostruct                         {  }
-        | STAR expr_nostruct                         {  }
-        | AMPERSAND maybe_mut expr_nostruct               {  }
-        | DOUBLE_AMPERSAND maybe_mut expr_nostruct            {  }
-        | lambda_expr_nostruct
-        | MOVE lambda_expr_nostruct                 {  }
+nonblock_prefix_expr_nostruct : MINUS expr_nostruct                     { $$ = treealloc(NONBLOCK_PREFIX_EXPR_NOSTRUCT_R, "nonblock_prefix_expr_nostruct", 2, $1, $2); }
+        | BANG expr_nostruct                                            { $$ = treealloc(NONBLOCK_PREFIX_EXPR_NOSTRUCT_R, "nonblock_prefix_expr_nostruct", 2, $1, $2); }
+        | STAR expr_nostruct                                            { $$ = treealloc(NONBLOCK_PREFIX_EXPR_NOSTRUCT_R, "nonblock_prefix_expr_nostruct", 2, $1, $2); }
+        | AMPERSAND maybe_mut expr_nostruct                             { $$ = treealloc(NONBLOCK_PREFIX_EXPR_NOSTRUCT_R, "nonblock_prefix_expr_nostruct", 3, $1, $2, $3); }
+        | DOUBLE_AMPERSAND maybe_mut expr_nostruct                      { $$ = treealloc(NONBLOCK_PREFIX_EXPR_NOSTRUCT_R, "nonblock_prefix_expr_nostruct", 3, $1, $2, $3); }
+        | lambda_expr_nostruct                                          { $$ = $1; }
+        | MOVE lambda_expr_nostruct                                     { $$ = treealloc(NONBLOCK_PREFIX_EXPR_NOSTRUCT_R, "nonblock_prefix_expr_nostruct", 2, $1, $2); }
         ;
 
-nonblock_prefix_expr : MINUS expr                         {  }
-        | BANG expr                         {  }
-        | STAR expr                         {  }
-        | AMPERSAND maybe_mut expr               {  }
-        | DOUBLE_AMPERSAND maybe_mut expr            {  }
-        | lambda_expr
-        | MOVE lambda_expr                 {  }
+nonblock_prefix_expr : MINUS expr                                       { $$ = treealloc(NONBLOCK_PREFIX_EXPR_R, "nonblock_prefix_expr", 2, $1, $2);}
+        | BANG expr                                                     { $$ = treealloc(NONBLOCK_PREFIX_EXPR_R, "nonblock_prefix_expr", 2, $1, $2); }
+        | STAR expr                                                     { $$ = treealloc(NONBLOCK_PREFIX_EXPR_R, "nonblock_prefix_expr", 2, $1, $2); }
+        | AMPERSAND maybe_mut expr                                      { $$ = treealloc(NONBLOCK_PREFIX_EXPR_R, "nonblock_prefix_expr", 3, $1, $2, $3); }
+        | DOUBLE_AMPERSAND maybe_mut expr                               { $$ = treealloc(NONBLOCK_PREFIX_EXPR_R, "nonblock_prefix_expr", 3, $1, $2, $3); }
+        | lambda_expr                                                   { $$ = $1; }
+        | MOVE lambda_expr                                              { $$ = treealloc(NONBLOCK_PREFIX_EXPR_R, "nonblock_prefix_expr", 2, $1, $2); }
         ;
 
 expr_qualified_path : LESS_THAN ty_sum maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident
         	       maybe_qpath_params {
-  
+                $$ = treealloc(EXPR_QUALIFIED_PATH_R, "expr_qualified_path", 7, $1, $2, $3, $4, $5, $6, $7);
           }
         | DOUBLE_LESS_THAN ty_sum maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident
           maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident {
-
+                $$ = treealloc(EXPR_QUALIFIED_PATH_R, "expr_qualified_path", 10, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
           }
         | DOUBLE_LESS_THAN ty_sum maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident
           generic_args maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident {
-  
+                $$ = treealloc(EXPR_QUALIFIED_PATH_R, "expr_qualified_path", 11, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
           }
         | DOUBLE_LESS_THAN ty_sum maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident
           maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident generic_args {
-
+                $$ = treealloc(EXPR_QUALIFIED_PATH_R, "expr_qualified_path", 11, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
           }
         | DOUBLE_LESS_THAN ty_sum maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident
           generic_args maybe_as_trait_ref GREATER_THAN DOUBLE_COLON ident generic_args {
-  
+                $$ = treealloc(EXPR_QUALIFIED_PATH_R, "expr_qualified_path", 12, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
           }
         ;
 
-maybe_qpath_params : DOUBLE_COLON generic_args {  }
-        | %empty               {  }
+maybe_qpath_params : DOUBLE_COLON generic_args { $$ = treealloc(MAYBE_QPATH_PARAMS_R, "maybe_qpath_params", 2, $1, $2); }
+        | %empty               { $$ = NULL; }
         ;
 
-maybe_as_trait_ref : AS trait_ref {  }
-        | %empty       {  }
+maybe_as_trait_ref : AS trait_ref { $$ = treealloc(MAYBE_AS_TRAIT_REF_R, "maybe_as_trait_ref", 2, $1, $2); }
+        | %empty       { $$ = NULL; }
         ;
 
-lambda_expr : %prec LAMBDA DOUBLE_PIPE ret_ty expr                          {  }
-        | %prec LAMBDA PIPE PIPE ret_ty expr                           {  }
-        | %prec LAMBDA PIPE inferrable_params PIPE ret_ty expr         {  }
-        | %prec LAMBDA PIPE inferrable_params DOUBLE_PIPE lambda_expr_no_first_bar {  }
+lambda_expr : %prec LAMBDA DOUBLE_PIPE ret_ty expr                          { $$ = treealloc(LAMBDA_EXPR_R, "lambda_expr", 3, $1, $2, $3); }
+        | %prec LAMBDA PIPE PIPE ret_ty expr                           { $$ = treealloc(LAMBDA_EXPR_R, "lambda_expr", 4, $1, $2, $3, $4); }
+        | %prec LAMBDA PIPE inferrable_params PIPE ret_ty expr         { $$ = treealloc(LAMBDA_EXPR_R, "lambda_expr", 5, $1, $2, $3, $4, $5); }
+        | %prec LAMBDA PIPE inferrable_params DOUBLE_PIPE lambda_expr_no_first_bar { $$ = treealloc(LAMBDA_EXPR_R, "lambda_expr", 4, $1, $2, $3, $4); }
         ;
 
-lambda_expr_no_first_bar : %prec LAMBDA PIPE ret_ty expr                {  }
-        | %prec LAMBDA inferrable_params PIPE ret_ty expr               {  }
-        | %prec LAMBDA inferrable_params DOUBLE_PIPE lambda_expr_no_first_bar {  }
+lambda_expr_no_first_bar : %prec LAMBDA PIPE ret_ty expr                { $$ = treealloc(LAMBDA_EXPR_NO_FIRST_BAR_R, "lambda_expr_no_first_bar", 3, $1, $2, $3); }
+        | %prec LAMBDA inferrable_params PIPE ret_ty expr               { $$ = treealloc(LAMBDA_EXPR_NO_FIRST_BAR_R, "lambda_expr_no_first_bar", 4, $1, $2, $3, $4); }
+        | %prec LAMBDA inferrable_params DOUBLE_PIPE lambda_expr_no_first_bar { $$ = treealloc(LAMBDA_EXPR_NO_FIRST_BAR_R, "lambda_expr_no_first_bar", 3, $1, $2, $3); }
         ;
 
-lambda_expr_nostruct : %prec LAMBDA DOUBLE_PIPE expr_nostruct                 {  }
-        | %prec LAMBDA PIPE PIPE ret_ty expr_nostruct                    {  }
-        | %prec LAMBDA PIPE inferrable_params PIPE expr_nostruct         {  }
+lambda_expr_nostruct : %prec LAMBDA DOUBLE_PIPE expr_nostruct                 { $$ = treealloc(LAMBDA_EXPR_NOSTRUCT_R, "lambda_expr_nostruct", 2, $1, $2); }
+        | %prec LAMBDA PIPE PIPE ret_ty expr_nostruct                    { $$ = treealloc(LAMBDA_EXPR_NOSTRUCT_R, "lambda_expr_nostruct", 4, $1, $2, $3, $4); }
+        | %prec LAMBDA PIPE inferrable_params PIPE expr_nostruct         { $$ = treealloc(LAMBDA_EXPR_NOSTRUCT_R, "lambda_expr_nostruct", 4, $1, $2, $3, $4); }
         | %prec LAMBDA PIPE inferrable_params DOUBLE_PIPE
-          lambda_expr_nostruct_no_first_bar {  }
+          lambda_expr_nostruct_no_first_bar { $$ = treealloc(LAMBDA_EXPR_NOSTRUCT_R, "lambda_expr_nostruct", 4, $1, $2, $3, $4); }
         ;
 
-lambda_expr_nostruct_no_first_bar : %prec LAMBDA PIPE ret_ty expr_nostruct {  }
-        | %prec LAMBDA inferrable_params PIPE ret_ty expr_nostruct         {  }
+lambda_expr_nostruct_no_first_bar : %prec LAMBDA PIPE ret_ty expr_nostruct { $$ = treealloc(LAMBDA_EXPR_NOSTRUCT_NO_FIRST_BAR_R, "lambda_expr_nostruct_no_first_bar", 3, $1, $2, $3); }
+        | %prec LAMBDA inferrable_params PIPE ret_ty expr_nostruct         { $$ = treealloc(LAMBDA_EXPR_NOSTRUCT_NO_FIRST_BAR_R, "lambda_expr_nostruct_no_first_bar", 4, $1, $2, $3, $4); }
         | %prec LAMBDA inferrable_params DOUBLE_PIPE
-          lambda_expr_nostruct_no_first_bar {  }
+          lambda_expr_nostruct_no_first_bar { $$ = treealloc(LAMBDA_EXPR_NOSTRUCT_NO_FIRST_BAR_R, "lambda_expr_nostruct_no_first_bar", 3, $1, $2, $3); }
         ;
 
-vec_expr : maybe_exprs
-        | exprs SEMICOLON expr {  }
+vec_expr : maybe_exprs { $$ = $1; }
+        | exprs SEMICOLON expr { $$ = treealloc(VEC_EXPR_R, "vec_expr", 3, $1, $2, $3); }
         ;
 
-struct_expr_fields : field_inits
-        | field_inits COMMA
-        | maybe_field_inits default_field_init {  }
-        | %empty                               {  }
+struct_expr_fields : field_inits { $$ = $1; }
+        | field_inits COMMA { $$ = treealloc(STRUCT_EXPR_FIELDS_R, "struct_expr_fields", 2, $1, $2); }
+        | maybe_field_inits default_field_init { $$ = treealloc(STRUCT_EXPR_FIELDS_R, "struct_expr_fields", 2, $1, $2); }
+        | %empty                               { $$ = NULL; }
         ;
 
-maybe_field_inits : field_inits
-        | field_inits COMMA
-        | %empty {  }
+maybe_field_inits : field_inits {$$ = $1; }
+        | field_inits COMMA {$$ = treealloc(MAYBE_FIELD_INITS_R, "maybe_field_inits", 2, $1, $2); }
+        | %empty { $$ = NULL; }
         ;
 
-field_inits : field_init                 {  }
-        | field_inits COMMA field_init {  }
+field_inits : field_init                 { $$ = $1; }
+        | field_inits COMMA field_init { $$ = treealloc(FIELD_INITS_R, "field_inits", 3, $1, $2, $3); }
         ;
 
-field_init : ident                {  }
-        | ident COLON expr       {  }
-        | INTEGER_LITERAL COLON expr {  }
+field_init : ident                { $$ = $1; }
+        | ident COLON expr       { $$ = treealloc(FIELD_INIT_R, "field_init", 3, $1, $2, $3); }
+        | INTEGER_LITERAL COLON expr { $$ = treealloc(FIELD_INIT_R, "field_init", 3, $1, $2, $3); }
         ;
 
-default_field_init : DOUBLE_DOT expr   {  }
+default_field_init : DOUBLE_DOT expr   { $$ = treealloc(DEFAULT_FIELD_INIT_R, "default_field_init", 2, $1, $2); }
         ;
 
-block_expr : expr_match
-        | expr_if
-        | expr_if_let
-        | expr_while
-        | expr_while_let
-        | expr_loop
-        | expr_for
-        | UNSAFE block                                           {  }
-        | path_expr BANG maybe_ident braces_delimited_token_trees {  }
+block_expr : expr_match { $$ = $1; }
+        | expr_if { $$ = $1; }
+        | expr_if_let { $$ = $1; }
+        | expr_while { $$ = $1; }
+        | expr_while_let { $$ = $1; }
+        | expr_loop { $$ = $1; }
+        | expr_for { $$ = $1; }
+        | UNSAFE block                                            { $$ = treealloc(BLOCK_EXPR_R, "block_expr", 2, $1, $2); }
+        | path_expr BANG maybe_ident braces_delimited_token_trees { $$ = treealloc(BLOCK_EXPR_R, "block_expr", 4, $1, $2, $3, $4); }
         ;
 
-full_block_expr : block_expr
-        | block_expr_dot
+full_block_expr : block_expr { $$ = $1; }
+        | block_expr_dot     { $$ = $1; }
         ;
 
-block_expr_dot : block_expr DOT path_generic_args_with_colons %prec IDENTIFIER {  }
-        | block_expr_dot DOT path_generic_args_with_colons %prec IDENTIFIER    {  }
+block_expr_dot : block_expr DOT path_generic_args_with_colons %prec IDENTIFIER { $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 3, $1, $2, $3); }
+        | block_expr_dot DOT path_generic_args_with_colons %prec IDENTIFIER    { $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 3, $1, $2, $3); }
         | block_expr     DOT path_generic_args_with_colons LEFT_BRACKET maybe_expr RIGHT_BRACKET {
+                $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 6, $1, $2, $3, $4, $5, $6);
           }
         | block_expr_dot DOT path_generic_args_with_colons LEFT_BRACKET maybe_expr RIGHT_BRACKET {
+                $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 6, $1, $2, $3, $4, $5, $6);
           }
         | block_expr    DOT path_generic_args_with_colons LEFT_PAREN maybe_exprs RIGHT_PAREN {
+                $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 6, $1, $2, $3, $4, $5, $6);
           }
-        | block_expr_dot DOT path_generic_args_with_colons LEFT_PAREN maybe_exprs RIGHT_PAREN {  }
-        | block_expr     DOT INTEGER_LITERAL                                  {  }
-        | block_expr_dot DOT INTEGER_LITERAL                                  {  }
+        | block_expr_dot DOT path_generic_args_with_colons LEFT_PAREN maybe_exprs RIGHT_PAREN { 
+                $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 6, $1, $2, $3, $4, $5, $6);
+          }
+        | block_expr     DOT INTEGER_LITERAL                                  { $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 3, $1, $2, $3); }
+        | block_expr_dot DOT INTEGER_LITERAL                                  { $$ = treealloc(BLOCK_EXPR_DOT_R, "block_expr_dot", 3, $1, $2, $3); }
         ;
 
-expr_match : MATCH expr_nostruct LEFT_BRACE RIGHT_BRACE                                  {  }
-        | MATCH expr_nostruct LEFT_BRACE match_clauses                       RIGHT_BRACE {  }
-        | MATCH expr_nostruct LEFT_BRACE match_clauses nonblock_match_clause RIGHT_BRACE {  }
-        | MATCH expr_nostruct LEFT_BRACE               nonblock_match_clause RIGHT_BRACE {  }
+expr_match : MATCH expr_nostruct LEFT_BRACE RIGHT_BRACE                                  { $$ = treealloc(EXPR_MATCH_R, "expr_match", 4, $1, $2, $3, $4); }
+        | MATCH expr_nostruct LEFT_BRACE match_clauses                       RIGHT_BRACE { $$ = treealloc(EXPR_MATCH_R, "expr_match", 5, $1, $2, $3, $4, $5); }
+        | MATCH expr_nostruct LEFT_BRACE match_clauses nonblock_match_clause RIGHT_BRACE { $$ = treealloc(EXPR_MATCH_R, "expr_match", 6, $1, $2, $3, $4, $5, $6); }
+        | MATCH expr_nostruct LEFT_BRACE               nonblock_match_clause RIGHT_BRACE { $$ = treealloc(EXPR_MATCH_R, "expr_match", 5, $1, $2, $3, $4, $5); }
         ;
 
-match_clauses : match_clause               {  }
-        | match_clauses match_clause {  }
+match_clauses : match_clause               { $$ = $1; }
+        | match_clauses match_clause { $$ = treealloc(MATCH_CLAUSES_R, "match_clauses", 2, $1, $2);}
         ;
 
-match_clause : nonblock_match_clause COMMA
-        | block_match_clause
-        | block_match_clause COMMA
+match_clause : nonblock_match_clause COMMA { $$ = treealloc(MATCH_CLAUSE_R, "match_clause", 2, $1, $2); }
+        | block_match_clause { $$ = $1; }
+        | block_match_clause COMMA { $$ = treealloc(MATCH_CLAUSE_R, "match_clause", 2, $1, $2); }
         ;
 
 nonblock_match_clause : maybe_outer_attrs pats_or maybe_guard FAT_ARROW
-        	        nonblock_expr  {  }
-        | maybe_outer_attrs pats_or maybe_guard FAT_ARROW block_expr_dot {  }
+        	        nonblock_expr  { $$ = treealloc(NONBLOCK_MATCH_CLAUSE_R, "nonblock_match_clause", 5, $1, $2, $3, $4, $5); }
+        | maybe_outer_attrs pats_or maybe_guard FAT_ARROW block_expr_dot {  $$ = treealloc(NONBLOCK_MATCH_CLAUSE_R, "nonblock_match_clause", 5, $1, $2, $3, $4, $5); }
         ;
 
-block_match_clause : maybe_outer_attrs pats_or maybe_guard FAT_ARROW block {  }
-        | maybe_outer_attrs pats_or maybe_guard FAT_ARROW block_expr {  }
+block_match_clause : maybe_outer_attrs pats_or maybe_guard FAT_ARROW block { $$ = treealloc(BLOCK_MATCH_CLAUSE_R, "block_match_clause", 5, $1, $2, $3, $4, $5); }
+        | maybe_outer_attrs pats_or maybe_guard FAT_ARROW block_expr { $$ = treealloc(BLOCK_MATCH_CLAUSE_R, "block_match_clause", 5, $1, $2, $3, $4, $5); }
         ;
 
-maybe_guard : IF expr_nostruct           {  }
-        | %empty                     {  }
+maybe_guard : IF expr_nostruct           { $$ = treealloc(MAYBE_GUARD_R, "maybe_guard", 2, $1, $2); }
+        | %empty                     { $$ = NULL; }
         ;
 
-expr_if : IF expr_nostruct block                              {  }
-        | IF expr_nostruct block ELSE block_or_if             {  }
+expr_if : IF expr_nostruct block                              { $$ = treealloc(EXPR_IF_R, "expr_if", 3, $1, $2, $3); }
+        | IF expr_nostruct block ELSE block_or_if             { $$ = treealloc(EXPR_IF_R, "expr_if", 5, $1, $2, $3, $4, $5); }
         ;
 
-expr_if_let : IF LET pat EQUAL expr_nostruct block                  {  }
-        | IF LET pat EQUAL expr_nostruct block ELSE block_or_if {  }
+expr_if_let : IF LET pat EQUAL expr_nostruct block                  { $$ = treealloc(EXPR_IF_LET_R, "expr_if_let", 6, $1, $2, $3, $4, $5, $6); }
+        | IF LET pat EQUAL expr_nostruct block ELSE block_or_if { $$ = treealloc(EXPR_IF_LET_R, "expr_if_let", 8, $1, $2, $3, $4, $5, $6, $7, $8);}
         ;
 
-block_or_if : block
-        | expr_if
-        | expr_if_let
+block_or_if : block { $$ = $1; }
+        | expr_if { $$ = $1; }
+        | expr_if_let { $$ = $1; }
         ;
 
-expr_while : maybe_label WHILE expr_nostruct block               {  }
+expr_while : maybe_label WHILE expr_nostruct block               { $$ = treealloc(EXPR_WHILE_R, "expr_while", 4, $1, $2, $3, $4); }
         ;
 
-expr_while_let : maybe_label WHILE LET pat EQUAL expr_nostruct block   {  }
+expr_while_let : maybe_label WHILE LET pat EQUAL expr_nostruct block   { $$ = treealloc(EXPR_WHILE_LET_R, "expr_while_let", 7, $1, $2, $3, $4, $5, $6, $7); }
         ;
 
-expr_loop : maybe_label LOOP block                              {  }
+expr_loop : maybe_label LOOP block                              { $$ = treealloc(EXPR_LOOP_R, "expr_loop", 3, $1, $2, $3); }
         ;
 
-expr_for : maybe_label FOR pat IN expr_nostruct block          {  }
+expr_for : maybe_label FOR pat IN expr_nostruct block          { $$ = treealloc(EXPR_FOR_R, "expr_for", 6, $1, $2, $3, $4, $5, $6); }
         ;
 
-maybe_label : lifetime COLON
-        | %empty {  }
+maybe_label : lifetime COLON { $$ = treealloc(MAYBE_LABEL_R, "maybe_label", 2, $1, $2); }
+        | %empty { $$ = NULL; }
         ;
 
-let : LET pat maybe_ty_ascription maybe_init_expr SEMICOLON {  }
+let : LET pat maybe_ty_ascription maybe_init_expr SEMICOLON { $$ = treealloc(LET_R, "let", 5, $1, $2, $3, $4, $5); }
         ;
 
 ////////////////////////////////////////////////////////////////////////
 // Part 5: Macros and misc. rules
 ////////////////////////////////////////////////////////////////////////
 
-lit : LIT_BYTE                   {  }
-    | CHAR_LITERAL                   {  }
-    | INTEGER_LITERAL                {  }
-    | FLOAT_LITERAL                  {  }
-    | TRUE                       {  }
-    | FALSE                      {  }
-    | str
+lit : LIT_BYTE                   { $$ = $1; }
+    | CHAR_LITERAL               { $$ = $1; }
+    | INTEGER_LITERAL            { $$ = $1; }
+    | FLOAT_LITERAL              { $$ = $1; }
+    | TRUE                       { $$ = $1; }
+    | FALSE                      { $$ = $1; }
+    | str                        { $$ = $1; }
     ;
 
-str : STRING_LITERAL                    {  }
-    | STRING_LITERAL_RAW                {  }
-    | LIT_BYTE_STR               {  }
-    | LIT_BYTE_STR_RAW           {  }
+str : STRING_LITERAL             { $$ = $1; }
+    | STRING_LITERAL_RAW         { $$ = $1; }
+    | LIT_BYTE_STR               { $$ = $1; }
+    | LIT_BYTE_STR_RAW           { $$ = $1; }
     ;
 
-maybe_ident : %empty {  }
-        | ident
+maybe_ident : %empty { $$ = NULL; }
+        | ident { $$ = $1; }
         ;
 
-ident : IDENTIFIER                      {  }
+ident : IDENTIFIER                   { $$ = $1; }
 // Weak keywords that can be used as identifiers.  Boo! Not in Irony!
-        | CATCH                      {  }
-        | DEFAULT                    {  }
-        | UNION                      {  }
+        | CATCH                      { $$ = $1; }
+        | DEFAULT                    { $$ = $1; }
+        | UNION                      { $$ = $1; }
         ;
 
-unpaired_token : DOUBLE_LESS_THAN                        {  }
-        | DOUBLE_GREATER_THAN                        {  }
-        | LESS_THAN_EQUAL                         {  }
-        | DOUBLE_EQUAL                       {  }
-        | NOT_EQUAL                         {  }
-        | GREATER_THAN_EQUAL                         {  }
-        | DOUBLE_AMPERSAND                     {  }
-        | DOUBLE_PIPE                       {  }
-        | LARROW                     {  }
-        | DOUBLE_LESS_THAN_EQUAL                      {  }
-        | DOUBLE_GREATER_THAN_EQUAL                      {  }
-        | MINUS_EQUAL                    {  }
-        | AMPERSAND_EQUAL                      {  }
-        | PIPE_EQUAL                       {  }
-        | PLUS_EQUAL                     {  }
-        | STAR_EQUAL                     {  }
-        | SLASH_EQUAL                    {  }
-        | CARET_EQUAL                    {  }
-        | PERCENT_EQUAL                  {  }
-        | DOUBLE_DOT                     {  }
-        | TRIPLE_DOT                  {  }
-        | DOUBLE_COLON                    {  }
-        | ARROW                     {  }
-        | FAT_ARROW                  {  }
-        | LIT_BYTE                   {  }
-        | CHAR_LITERAL                   {  }
-        | INTEGER_LITERAL                {  }
-        | FLOAT_LITERAL                  {  }
-        | STRING_LITERAL                    {  }
-        | STRING_LITERAL_RAW                {  }
-        | LIT_BYTE_STR               {  }
-        | LIT_BYTE_STR_RAW           {  }
-        | IDENTIFIER                      {  }
-        | UNDERSCORE                 {  }
-        | LIFETIME                   {  }
-        | SELF                       {  }
-        | STATIC                     {  }
-        | ABSTRACT                   {  }
-        | ALIGNOF                    {  }
-        | AS                         {  }
-        | BECOME                     {  }
-        | BREAK                      {  }
-        | CATCH                      {  }
-        | CRATE                      {  }
-        | DEFAULT                    {  }
-        | DO                         {  }
-        | ELSE                       {  }
-        | ENUM                       {  }
-        | EXTERN                     {  }
-        | FALSE                      {  }
-        | FINAL                      {  }
-        | FN                         {  }
-        | FOR                        {  }
-        | IF                         {  }
-        | IMPL                       {  }
-        | IN                         {  }
-        | LET                        {  }
-        | LOOP                       {  }
-        | MACRO                      {  }
-        | MATCH                      {  }
-        | MOD                        {  }
-        | MOVE                       {  }
-        | MUT                        {  }
-        | OFFSETOF                   {  }
-        | OVERRIDE                   {  }
-        | PRIV                       {  }
-        | PUB                        {  }
-        | PURE                       {  }
-        | REF                        {  }
-        | RETURN                     {  }
-        | STRUCT                     {  }
-        | SIZEOF                     {  }
-        | SUPER                      {  }
-        | TRUE                       {  }
-        | TRAIT                      {  }
-        | TYPE                       {  }
-        | UNION                      {  }
-        | UNSAFE                     {  }
-        | UNSIZED                    {  }
-        | USE                        {  }
-        | VIRTUAL                    {  }
-        | WHILE                      {  }
-        | YIELD                      {  }
-        | CONTINUE                   {  }
-        | PROC                       {  }
-        | BOX                        {  }
-        | CONST                      {  }
-        | WHERE                      {  }
-        | TYPEOF                     {  }
-        | INNER_DOC_COMMENT          {  }
-        | OUTER_DOC_COMMENT          {  }
-        | SHEBANG                    {  }
-        | STATIC_LIFETIME            {  }
-        | SEMICOLON                        {  }
-        | COMMA                        {  }
-        | DOT                        {  }
-        | AT                        {  }
-        | HASH                        {  }
-        | '~'                        {  }
-        | COLON                        {  }
-        | DOLLAR                        {  }
-        | EQUAL                        {  }
-        | QUESTION                        {  }
-        | BANG                        {  }
-        | LESS_THAN                        {  }
-        | GREATER_THAN                        {  }
-        | MINUS                        {  }
-        | AMPERSAND                        {  }
-        | PIPE                        {  }
-        | PLUS                        {  }
-        | STAR                        {  }
-        | SLASH                        {  }
-        | CARET                        {  }
-        | PERCENT                        {  }
+unpaired_token : DOUBLE_LESS_THAN       { $$ = $1; }
+        | DOUBLE_GREATER_THAN           { $$ = $1; }
+        | LESS_THAN_EQUAL               { $$ = $1; }
+        | DOUBLE_EQUAL                  { $$ = $1; }
+        | NOT_EQUAL                     { $$ = $1; }
+        | GREATER_THAN_EQUAL            { $$ = $1; }
+        | DOUBLE_AMPERSAND              { $$ = $1; }
+        | DOUBLE_PIPE                   { $$ = $1; }
+        | LARROW                        { $$ = $1; }
+        | DOUBLE_LESS_THAN_EQUAL        { $$ = $1; }
+        | DOUBLE_GREATER_THAN_EQUAL     { $$ = $1; }
+        | MINUS_EQUAL                   { $$ = $1; }
+        | AMPERSAND_EQUAL               { $$ = $1; }
+        | PIPE_EQUAL                    { $$ = $1; }
+        | PLUS_EQUAL                    { $$ = $1; }
+        | STAR_EQUAL                    { $$ = $1; }
+        | SLASH_EQUAL                   { $$ = $1; }
+        | CARET_EQUAL                   { $$ = $1; }
+        | PERCENT_EQUAL                 { $$ = $1; }
+        | DOUBLE_DOT                    { $$ = $1; }
+        | TRIPLE_DOT                    { $$ = $1; }
+        | DOUBLE_COLON                  { $$ = $1; }
+        | ARROW                         { $$ = $1; }
+        | FAT_ARROW                     { $$ = $1; }
+        | LIT_BYTE                      { $$ = $1; }
+        | CHAR_LITERAL                  { $$ = $1; }
+        | INTEGER_LITERAL               { $$ = $1; }
+        | FLOAT_LITERAL                 { $$ = $1; }
+        | STRING_LITERAL                { $$ = $1; }
+        | STRING_LITERAL_RAW            { $$ = $1; }
+        | LIT_BYTE_STR                  { $$ = $1; }
+        | LIT_BYTE_STR_RAW              { $$ = $1; }
+        | IDENTIFIER                    { $$ = $1; }
+        | UNDERSCORE                    { $$ = $1; }
+        | LIFETIME                      { $$ = $1; }
+        | SELF                          { $$ = $1; }
+        | STATIC                        { $$ = $1; }
+        | ABSTRACT                      { $$ = $1; }
+        | ALIGNOF                       { $$ = $1; }
+        | AS                            { $$ = $1; }
+        | BECOME                        { $$ = $1; }
+        | BREAK                         { $$ = $1; }
+        | CATCH                         { $$ = $1; }
+        | CRATE                         { $$ = $1; }
+        | DEFAULT                       { $$ = $1; }
+        | DO                            { $$ = $1; }
+        | ELSE                          { $$ = $1; }
+        | ENUM                          { $$ = $1; }
+        | EXTERN                        { $$ = $1; }
+        | FALSE                         { $$ = $1; }
+        | FINAL                         { $$ = $1; }
+        | FN                            { $$ = $1; }
+        | FOR                           { $$ = $1; }
+        | IF                            { $$ = $1; }
+        | IMPL                          { $$ = $1; }
+        | IN                            { $$ = $1; }
+        | LET                           { $$ = $1; }
+        | LOOP                          { $$ = $1; }
+        | MACRO                         { $$ = $1; }
+        | MATCH                         { $$ = $1; }
+        | MOD                           { $$ = $1; }
+        | MOVE                          { $$ = $1; }
+        | MUT                           { $$ = $1; }
+        | OFFSETOF                      { $$ = $1; }
+        | OVERRIDE                      { $$ = $1; }
+        | PRIV                          { $$ = $1; }
+        | PUB                           { $$ = $1; }
+        | PURE                          { $$ = $1; }
+        | REF                           { $$ = $1; }
+        | RETURN                        { $$ = $1; }
+        | STRUCT                        { $$ = $1; }
+        | SIZEOF                        { $$ = $1; }
+        | SUPER                         { $$ = $1; }
+        | TRUE                          { $$ = $1; }
+        | TRAIT                         { $$ = $1; }
+        | TYPE                          { $$ = $1; }
+        | UNION                         { $$ = $1; }
+        | UNSAFE                        { $$ = $1; }
+        | UNSIZED                       { $$ = $1; }
+        | USE                           { $$ = $1; }
+        | VIRTUAL                       { $$ = $1; }
+        | WHILE                         { $$ = $1; }
+        | YIELD                         { $$ = $1; }
+        | CONTINUE                      { $$ = $1; }
+        | PROC                          { $$ = $1; }
+        | BOX                           { $$ = $1; }
+        | CONST                         { $$ = $1; }
+        | WHERE                         { $$ = $1; }
+        | TYPEOF                        { $$ = $1; }
+        | INNER_DOC_COMMENT             { $$ = $1; }
+        | OUTER_DOC_COMMENT             { $$ = $1; }
+        | SHEBANG                       { $$ = $1; }
+        | STATIC_LIFETIME               { $$ = $1; }
+        | SEMICOLON                     { $$ = $1; }
+        | COMMA                         { $$ = $1; }
+        | DOT                           { $$ = $1; }
+        | AT                            { $$ = $1; }
+        | HASH                          { $$ = $1; }
+        | TILDE                         { $$ = $1; }
+        | COLON                         { $$ = $1; }
+        | DOLLAR                        { $$ = $1; }
+        | EQUAL                         { $$ = $1; }
+        | QUESTION                      { $$ = $1; }
+        | BANG                          { $$ = $1; }
+        | LESS_THAN                     { $$ = $1; }
+        | GREATER_THAN                  { $$ = $1; }
+        | MINUS                         { $$ = $1; }
+        | AMPERSAND                     { $$ = $1; }
+        | PIPE                          { $$ = $1; }
+        | PLUS                          { $$ = $1; }
+        | STAR                          { $$ = $1; }
+        | SLASH                         { $$ = $1; }
+        | CARET                         { $$ = $1; }
+        | PERCENT                       { $$ = $1; }
         ;
 
-token_trees : %empty                     {  }
-        | token_trees token_tree     {  }
+token_trees : %empty                    { $$ = NULL; }
+        | token_trees token_tree        { $$ = treealloc(TOKEN_TREES_R, "token_trees", 2, $1, $2); }
         ;
 
-token_tree : delimited_token_trees
-        | unpaired_token         {  }
+token_tree : delimited_token_trees      { $$ = $1; }
+        | unpaired_token                { $$ = $1; }
         ;
 
-delimited_token_trees : parens_delimited_token_trees
-        | braces_delimited_token_trees
-        | brackets_delimited_token_trees
+delimited_token_trees : parens_delimited_token_trees { $$ = $1;}
+        | braces_delimited_token_trees { $$ = $1; }
+        | brackets_delimited_token_trees {$$ = $1; }
         ;
 
 parens_delimited_token_trees : LEFT_PAREN token_trees RIGHT_PAREN {
-  
+                $$ = treealloc(PARENS_DELIMITED_TOKEN_TREES_R, "parens_delimited_token_trees", 3, $1, $2, $3);
         }
         ;
 
 braces_delimited_token_trees : LEFT_BRACE token_trees RIGHT_BRACE {
-  
+                $$ = treealloc(BRACES_DELIMITED_TOKEN_TREES_R, "braces_delimited_token_trees", 3, $1, $2, $3);
         }
         ;
 
 brackets_delimited_token_trees : LEFT_BRACKET token_trees RIGHT_BRACKET {
-
+                $$ = treealloc(BRACKETS_DELIMITED_TOKEN_TREES_R, "brackets_delimited_token_trees", 3, $1, $2, $3);
         }
         ;
+
+%%
+
+const char *yyname(int sym){
+        return yytname[sym-TILDE+3];
+}

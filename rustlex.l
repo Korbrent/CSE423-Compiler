@@ -7,14 +7,18 @@
 #include "token.h"
 #include "rustparse.h"
 #include "tree.h"
-int lines = 0;
+int lineno = 0;
 // extern struct token *yytoken;
 extern void clearFlexBuffer();
 char *filename;
 
+extern int getLineNo(){
+    return lineno;
+}
 int leafAlloc(int i);
 void string_literal_parser(char *temp, char *output);
 int char_literal_parser(char *input);
+void __yyerror(char *s, int yystate);
 %}
 
 %%
@@ -120,16 +124,19 @@ yield                           {   return leafAlloc(YIELD); }
 "#"                             {   return leafAlloc(HASH); }
 "$"                             {   return leafAlloc(DOLLAR); }
 
+"~"                             {   return leafAlloc(TILDE); }
+
 
 '\\?.'                          {   return leafAlloc(CHAR_LITERAL); }
 \"([^"\n]|(\\\"))*\"            {   return leafAlloc(STRING_LITERAL); }
+\"([^"\n]|(\\\"))*\n            {   __yyerror("Unclosed string", LEXICAL_ERROR); }
 "-"?[0-9]+                      {   return leafAlloc(INTEGER_LITERAL); }
 "-"?([0-9]+(\.[0-9]+)?|[0-9]*\.[0-9]+) { 
                                     return leafAlloc(FLOAT_LITERAL); }
 
 [a-zA-Z][a-zA-Z0-9_]*           {   return leafAlloc(IDENTIFIER); }
 
-\n                              { lines++; }
+\n                              { lineno++; }
 [ \t\r\f\v]                     {}
 ("//"|"#").*                    {}
 "/*"([^*]|"*"+[^/*])*"*"+"/"    { // Count the number of lines in a block comment.
@@ -138,13 +145,14 @@ yield                           {   return leafAlloc(YIELD); }
                                     int len = strlen(temp);
                                     while(temp[i] != '\0' && i < len){
                                         if(temp[i] == '\n'){
-                                            lines++;
+                                            lineno++;
                                         }
                                         i++;
                                     }
                                 }
 .                               {   // Pass any uncaught character as itself.
-                                    return leafAlloc(yytext[0]);
+                                    // return leafAlloc(yytext[0]);
+                                    __yyerror("Unrecognized token", LEXICAL_ERROR);
                                 }
 
 %%
@@ -155,7 +163,7 @@ yield                           {   return leafAlloc(YIELD); }
     t->category = type;
     t->text = malloc(strlen(text));
     strcpy(t->text, text);
-    t->lineno = lines;
+    t->lineno = lineno;
     t->filename = filename;
     t->ival = -1;
     t->dval = -1;
@@ -188,14 +196,19 @@ void clearFlexBuffer(){
 
 // Allocate a token node within the tree.
 int leafAlloc(int i){
-    struct token *t = buildToken(i, yytext, lines, filename);
+    struct token *t = buildToken(i, yytext, lineno, filename);
     yylval.treeptr = malloc(sizeof(struct tree));
-    yylval.treeptr->leaf = t;
+
+    yylval.treeptr->id = getTreeId();
     yylval.treeptr->production_rule = i;
-    yylval.treeptr->nkids = 0;
     yylval.treeptr->symbolname = t->text;
+    yylval.treeptr->nkids = 0;
+    for (int i = 0; i < MAXKIDS; i++){
+        yylval.treeptr->kids[i] = NULL;
+    }
+    yylval.treeptr->leaf = t;
     
-    printf("Leaf node allocated!");
-    printNode(yylval.treeptr, 2);
+    // printf("Leaf node allocated!");
+    // printNode(yylval.treeptr, 2);
     return i;
 }

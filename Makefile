@@ -10,8 +10,8 @@ OUTPUT = fec
 MAIN_FILE = main.c
 FLEX_FILE = rustlex.l
 BISON_FILE = rustparse.y
-C_FILES = token.c tree.c
-HEADER_FILES = token.h tree.h parserRules.h
+C_FILES = token.c tree.c graphicTree.c
+HEADER_FILES = token.h tree.h parserRules.h graphicTree.h
 
 # Compilers
 CC = gcc
@@ -42,6 +42,9 @@ $(BISON_FILE:.y=.c): $(BISON_FILE) $(HEADER_FILES)
 $(BISON_FILE:.y=.h): $(BISON_FILE:.y=.c)
 
 $(FLEX_FILE:.l=.o): $(FLEX_FILE:.l=.c) token.o
+	$(CC) $(O_FLAGS) $< -o $@
+
+$(BISON_FILE:.y=.o): $(BISON_FILE:.y=.c) tree.o
 	$(CC) $(O_FLAGS) $< -o $@
 
 %.o: %.c $(HEADER_FILES) $(BISON_FILE:.y=.h)

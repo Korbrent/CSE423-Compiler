@@ -9,8 +9,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+/**
+ * Allocates a new token and initializes it with the given values.
+ * @param type The type of token.
+ * @param text The text of the token.
+ * @param lineno The line number where the token was found.
+ * @param filename The name of the file where the token was found.
+ * @return A pointer to the new token.
+ */
 struct token *buildToken(int type, char *text, int lineno, char *filename) {
+    // Allocate the token & initialize it with the given values.
     struct token *t = malloc(sizeof(struct token));
     t->category = type;
     t->text = malloc(strlen(text) + 1);
@@ -20,6 +28,8 @@ struct token *buildToken(int type, char *text, int lineno, char *filename) {
     t->ival = -1;
     t->dval = -1.0;
     t->sval = NULL;
+
+    // Parse the text into the token.
     switch(type){
         case INTEGER_LITERAL:
             sscanf(text, "%d", &t->ival);
@@ -41,7 +51,11 @@ struct token *buildToken(int type, char *text, int lineno, char *filename) {
     return t;
 }
 
-// Parse a string literal and convert escape characters.
+/**
+ * Parses a string literal and converts escape characters.
+ * @param input The string to parse.
+ * @param output The parsed string.
+ */
 void string_literal_parser(char *input, char *output){
     int i = 0; // Index for the input string.
     int j = 0; // Index for the output string.
@@ -114,7 +128,11 @@ void string_literal_parser(char *input, char *output){
     // The string is now parsed.
 }
 
-// Parse a character literal and convert escape characters.
+/**
+ * Parses a character literal and converts escape characters.
+ * @param input The string to parse.
+ * @return The parsed character.
+*/
 int char_literal_parser(char *input){
     // Chars are like strings, but with only one character.
     // So it doesnt make sense to parse in a loop.
@@ -186,4 +204,24 @@ int char_literal_parser(char *input){
     }
 
     return returnChar;
+}
+
+/**
+ * Frees the given token.
+ * @param t The token to free.
+ */
+void tokenfree(struct token *t) {
+    // printf("Freeing token %s\n", t->text);
+    if (t->text != NULL){
+        free(t->text);
+    }
+    // Don't free the filename, it's a pointer to the command line argument.
+    // if (t->filename != NULL){
+    //     printf("Freeing filename %s\n", t->filename);
+    //     free(t->filename);
+    // }
+    if (t->category == STRING_LITERAL){
+        free(t->sval);
+    }
+    free(t);
 }

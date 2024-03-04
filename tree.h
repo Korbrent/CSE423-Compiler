@@ -7,19 +7,35 @@
 #ifndef TREE_H
 #define TREE_H
 #include "token.h"
+#define MAXKIDS 15
 
+// Tree node structure
 struct tree {
+    int id;
     int production_rule;
     char *symbolname;
     int nkids;
-    struct tree *kids[15]; /* if nkids > 0*/
+    struct tree *kids[MAXKIDS]; /* if nkids > 0*/
     struct token *leaf; /* if nkids == 0; NULL for ε productions */
 };
 
-struct tree *treealloc(int production_rule, char *symbolname, int nkids, ...);
-// void printTreeNode(struct tree *t, int depth);
-void printNode(struct tree *t, int depth);
+struct tree* treealloc(int production_rule, char *symbolname, int nkids, ...);
 
-void printTree(struct tree *t);
+/*
+ * I actually define treeRoot in tree.c
+ * Prevents other files from directly accessing treeRoot
+ * Hooray for OOP principles.
+ */
+// struct tree* treeRoot;
+extern void setTreeRoot(struct tree *t);
+extern struct tree* getTreeRoot();
+
+void treefree(struct tree *t);
+
+
+void printNode(struct tree *t, int depth);
+void printTree();
+
+int getTreeId();
 
 #endif
