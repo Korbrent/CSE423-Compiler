@@ -1,3 +1,12 @@
+/**
+ * @author Korbin Shelley
+ * @date: March 03, 2024
+ * @file: graphicTree.h
+ * @brief: This file contains the functions for printing the tree in a graphical format.
+ * 
+ * @version: 0.3.5
+*/
+
 #ifndef GRAPHICTREE_H
 #define GRAPHICTREE_H
 #include "tree.h"

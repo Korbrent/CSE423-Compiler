@@ -1,3 +1,11 @@
+/**
+ * @author Korbin Shelley
+ * @date: March 03, 2024
+ * @file: graphicTree.c
+ * @brief: This file contains the implementation of the functions declared in graphicTree.h
+ * 
+ * @version: 0.3.5
+*/
 #include "graphicTree.h"
 #include <stdio.h>
 #include <stdlib.h>

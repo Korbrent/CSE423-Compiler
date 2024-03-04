@@ -1,7 +1,7 @@
 # Filename: Makefile
 # Author: Korbin Shelley
 # Description: Makefile for the fec compiler project.
-# Date: February 18, 2024
+# Date: March 3, 2024
 
 # Output executable name (Can be whatever you want.)
 OUTPUT = fec
@@ -10,12 +10,11 @@ OUTPUT = fec
 MAIN_FILE = main.c
 FLEX_FILE = rustlex.l
 BISON_FILE = rustparse.y
-C_FILES = token.c tree.c graphicTree.c
-HEADER_FILES = token.h tree.h parserRules.h graphicTree.h
+C_FILES = token.c tree.c graphicTree.c hashtable.c symtab.c
+HEADER_FILES = token.h tree.h parserRules.h graphicTree.h hashtable.h symtab.h
 
 # Compilers
 CC = gcc
-LEX = flex
 
 # Flags
 LINK_FLAGS = -lfl -lm
@@ -34,7 +33,7 @@ $(OUTPUT): $(MAIN_FILE) $(OBJECTS)
 	$(CC) $(C_FLAGS) $^ -o $@
 
 $(FLEX_FILE:.l=.c): $(FLEX_FILE) $(BISON_FILE:.y=.h) $(HEADER_FILES)
-	$(LEX) --outfile=$@ $<
+	flex --outfile=$@ $<
 
 $(BISON_FILE:.y=.c): $(BISON_FILE) $(HEADER_FILES)
 	bison -d --output=$@ --header=$(BISON_FILE:.y=.h) $< -Wcounterexamples

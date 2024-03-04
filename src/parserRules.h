@@ -1,8 +1,10 @@
 /**
- * Modified by Korbin Shelley
- * Date: February 18, 2024
- * Filename: parserRules.h
- * Description: This file contains the rules for the grammatical parser.
+ * @author Korbin Shelley
+ * @date: March 03, 2024
+ * @file: parserRules.h
+ * @brief: This file contains the integer codes for the parser rules
+ * 
+ * @version: 0.3.4
 */
 
 #ifndef PARSER_RULES_H

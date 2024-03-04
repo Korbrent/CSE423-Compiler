@@ -1,10 +1,11 @@
 %{
 /**
  * Modified by Korbin Shelley
- * Date: February 18, 2024
- * Filename: rustparse.y
- * Description: This file contains the grammar for the Irony programming language.
-*/
+ * @date: March 03, 2024
+ * @file: rustparse.y
+ * @brief: This file contains the grammar for the Irony programming language.
+ * @version: 0.4.6
+ */
 /* 
 
 
@@ -1014,7 +1015,7 @@ named_arg : ident                       { $$ = $1; }
 
 ret_ty : ARROW BANG         { $$ = treealloc(RET_TY_R, "ret_ty", 2, $1, $2); }
         | ARROW ty          { $$ = treealloc(RET_TY_R, "ret_ty", 2, $1, $2); }
-        | %prec IDENTIFIER %empty {  }
+        | %prec IDENTIFIER %empty { $$ = NULL; }
         ;
 
 generic_params : LESS_THAN GREATER_THAN                                 { $$ = treealloc(GENERIC_PARAMS_R, "generic_params", 2, $1, $2); }
@@ -1082,6 +1083,7 @@ path_no_types_allowed : ident                           { $$ = $1; }
 // unlike in expr context, there are no "less-than" type exprs to
 // be ambiguous with.
 path_generic_args_without_colons : %prec IDENTIFIER ident {
+                $$ = $1;
           }
         | %prec IDENTIFIER  ident generic_args {
                 $$ = treealloc(PATH_GENERIC_ARGS_WITHOUT_COLONS_R, "path_generic_args_without_colons", 2, $1, $2);}
