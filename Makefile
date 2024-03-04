@@ -1,16 +1,15 @@
 # Filename: Makefile
 # Author: Korbin Shelley
-# Description: Makefile for the fec lexical analyzer
-# Version: lab1-part2
+# Description: Makefile for the fec compiler project.
+# Date: February 08, 2024
 
 # Output executable name (Can be whatever you want.)
 OUTPUT = fec
 
 # File Names
-# Only the main C file and the flex file are needed.
-# C_FILES is for future use for object files.
 MAIN_FILE = main.c
 FLEX_FILE = rustlex.l
+BISON_FILE = rustparse.y
 
 # Compilers
 CC = gcc
@@ -23,21 +22,25 @@ C_FLAGS = $(W_FLAGS) $(LINK_FLAGS) -Werror
 O_FLAGS = $(W_FLAGS) -c
 
 # generated file names (for cleanup)
-FLEX_OUTPUT = $(FLEX_FILE:.l=.c)
-OBJECTS = $(FLEX_OUTPUT:.c=.o)
+BUILDER_FILES = $(FLEX_FILE:.l=.c) $(BISON_FILE:.y=.c) $(BISON_FILE:.y=.h)
+OBJECTS = $(FLEX_FILE:.l=.o) $(BISON_FILE:.y=.o)
 
 # Builder functions
 all: $(OUTPUT)
-#	rm -f $(FLEX_FILES)
 
 $(OUTPUT): $(MAIN_FILE) $(OBJECTS) 
 	$(CC) $(C_FLAGS) $^ -o $@
 
-%.c: %.l
+$(FLEX_FILE:.l=.c): $(FLEX_FILE) $(BISON_FILE:.y=.h)
 	$(LEX) --outfile=$@ $^
+
+$(BISON_FILE:.y=.c): $(BISON_FILE)
+	bison -d --output=$@ --header=$(BISON_FILE:.y=.h) $^ -Wcounterexamples
+
+$(BISON_FILE:.y=.h): $(BISON_FILE:.y=.c)
 
 %.o: %.c
 	$(CC) $(O_FLAGS) $^ -o $@
 
 clean:
-	rm -f $(FLEX_OUTPUT) $(OUTPUT) *.o
+	rm $(OBJECTS) $(BUILDER_FILES) $(OUTPUT) *.o
