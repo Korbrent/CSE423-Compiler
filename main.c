@@ -1,13 +1,19 @@
+/**
+ * Modified by Korbin Shelley
+ * Date: February 18, 2024
+ * Filename: main.c
+ * Description: This file contains the main code for the Irony fec compiler.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "token.h"
 #include "rustparse.h"
 
 int yyparse();
 extern FILE *yyin;
-extern char *file;
+extern char *filename;
 struct token *yytoken;
 
 int yyerror(char *s) {
@@ -23,7 +29,7 @@ int main(int argc, char *argv[]){
     }
 
     // Get the first argument as a file name
-    char *filename = argv[1];
+    filename = argv[1];
     
     // Check if the file name was provided
     if (filename == NULL) {

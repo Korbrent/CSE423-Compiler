@@ -2,294 +2,200 @@
 %option noyywrap
 %option noinput
 %option nounput
+
 %{
-#include "rustparse.h"
 #include "token.h"
+#include "rustparse.h"
+#include "tree.h"
 int lines = 0;
-char *name;
-extern struct token *yytoken;
+// extern struct token *yytoken;
 extern void clearFlexBuffer();
+char *filename;
+
+int leafAlloc(int i);
+void string_literal_parser(char *temp, char *output);
+int char_literal_parser(char *input);
 %}
 
 %%
 
 
-as                              {   return AS; }
-break                           {   return BREAK; }
-const                           {   return CONST; }
-continue                        {   return CONTINUE; }
-crate                           {   return CRATE; }
-else                            {   return ELSE; }
-enum                            {   return ENUM; }
-extern                          {   return EXTERN; }
-false                           {   return FALSE; }
-fn                              {   return FN; }
-for                             {   return FOR; }
-if                              {   return IF; }
-impl                            {   return IMPL; }
-in                              {   return IN; }
-let                             {   return LET; }
-loop                            {   return LOOP; }
-match                           {   return MATCH; }
-mod                             {   return MOD; }
-move                            {   return MOVE; }
-mut                             {   return MUT; }
-pub                             {   return PUB; }
-ref                             {   return REF; }
-return                          {   return RETURN; }
-self                            {   return SELF; }
-static                          {   return STATIC; }
-struct                          {   return STRUCT; }
-super                           {   return SUPER; }
-trait                           {   return TRAIT; }
-true                            {   return TRUE; }
-type                            {   return TYPE; }
-unsafe                          {   return UNSAFE; }
-use                             {   return USE; }
-where                           {   return WHERE; }
-while                           {   return WHILE; }
+as                              {   return leafAlloc(AS); }
+break                           {   return leafAlloc(BREAK); }
+const                           {   return leafAlloc(CONST); }
+continue                        {   return leafAlloc(CONTINUE); }
+crate                           {   return leafAlloc(CRATE); }
+else                            {   return leafAlloc(ELSE); }
+enum                            {   return leafAlloc(ENUM); }
+extern                          {   return leafAlloc(EXTERN); }
+false                           {   return leafAlloc(FALSE); }
+fn                              {   return leafAlloc(FN); }
+for                             {   return leafAlloc(FOR); }
+if                              {   return leafAlloc(IF); }
+impl                            {   return leafAlloc(IMPL); }
+in                              {   return leafAlloc(IN); }
+let                             {   return leafAlloc(LET); }
+loop                            {   return leafAlloc(LOOP); }
+match                           {   return leafAlloc(MATCH); }
+mod                             {   return leafAlloc(MOD); }
+move                            {   return leafAlloc(MOVE); }
+mut                             {   return leafAlloc(MUT); }
+pub                             {   return leafAlloc(PUB); }
+ref                             {   return leafAlloc(REF); }
+return                          {   return leafAlloc(RETURN); }
+self                            {   return leafAlloc(SELF); }
+static                          {   return leafAlloc(STATIC); }
+struct                          {   return leafAlloc(STRUCT); }
+super                           {   return leafAlloc(SUPER); }
+trait                           {   return leafAlloc(TRAIT); }
+true                            {   return leafAlloc(TRUE); }
+type                            {   return leafAlloc(TYPE); }
+unsafe                          {   return leafAlloc(UNSAFE); }
+use                             {   return leafAlloc(USE); }
+where                           {   return leafAlloc(WHERE); }
+while                           {   return leafAlloc(WHILE); }
 
-abstract                        {   return ABSTRACT; }
-become                          {   return BECOME; }
-box                             {   return BOX; }
-do                              {   return DO; }
-final                           {   return FINAL; }
-macro                           {   return MACRO; }
-override                        {   return OVERRIDE; }
-priv                            {   return PRIV; }
-typeof                          {   return TYPEOF; }
-unsized                         {   return UNSIZED; }
-virtual                         {   return VIRTUAL; }
-yield                           {   return YIELD; }
+abstract                        {   return leafAlloc(ABSTRACT); }
+become                          {   return leafAlloc(BECOME); }
+box                             {   return leafAlloc(BOX); }
+do                              {   return leafAlloc(DO); }
+final                           {   return leafAlloc(FINAL); }
+macro                           {   return leafAlloc(MACRO); }
+override                        {   return leafAlloc(OVERRIDE); }
+priv                            {   return leafAlloc(PRIV); }
+typeof                          {   return leafAlloc(TYPEOF); }
+unsized                         {   return leafAlloc(UNSIZED); }
+virtual                         {   return leafAlloc(VIRTUAL); }
+yield                           {   return leafAlloc(YIELD); }
 
-"="                             {   return EQUAL; }
-"=="                            {   return DOUBLE_EQUAL; }
-"!"                             {   return BANG; }
-"!="                            {   return NOT_EQUAL; }
-"<"                             {   return LESS_THAN; }
-"<="                            {   return LESS_THAN_EQUAL; }
-"<<"                            {   return DOUBLE_LESS_THAN; }
-"<<="                           {   return DOUBLE_LESS_THAN_EQUAL; }
-">"                             {   return GREATER_THAN; }
-">="                            {   return GREATER_THAN_EQUAL; }
-">>"                            {   return DOUBLE_GREATER_THAN; }
-">>="                           {   return DOUBLE_GREATER_THAN_EQUAL; }
-"&"                             {   return AMPERSAND; }
-"&="                            {   return AMPERSAND_EQUAL; }
-"&&"                            {   return DOUBLE_AMPERSAND; }
-"|"                             {   return PIPE; }
-"|="                            {   return PIPE_EQUAL; }
-"||"                            {   return DOUBLE_PIPE; }
-"^"                             {   return CARET; }
-"^="                            {   return CARET_EQUAL; }
+"="                             {   return leafAlloc(EQUAL); }
+"=="                            {   return leafAlloc(DOUBLE_EQUAL); }
+"!"                             {   return leafAlloc(BANG); }
+"!="                            {   return leafAlloc(NOT_EQUAL); }
+"<"                             {   return leafAlloc(LESS_THAN); }
+"<="                            {   return leafAlloc(LESS_THAN_EQUAL); }
+"<<"                            {   return leafAlloc(DOUBLE_LESS_THAN); }
+"<<="                           {   return leafAlloc(DOUBLE_LESS_THAN_EQUAL); }
+">"                             {   return leafAlloc(GREATER_THAN); }
+">="                            {   return leafAlloc(GREATER_THAN_EQUAL); }
+">>"                            {   return leafAlloc(DOUBLE_GREATER_THAN); }
+">>="                           {   return leafAlloc(DOUBLE_GREATER_THAN_EQUAL); }
+"&"                             {   return leafAlloc(AMPERSAND); }
+"&="                            {   return leafAlloc(AMPERSAND_EQUAL); }
+"&&"                            {   return leafAlloc(DOUBLE_AMPERSAND); }
+"|"                             {   return leafAlloc(PIPE); }
+"|="                            {   return leafAlloc(PIPE_EQUAL); }
+"||"                            {   return leafAlloc(DOUBLE_PIPE); }
+"^"                             {   return leafAlloc(CARET); }
+"^="                            {   return leafAlloc(CARET_EQUAL); }
 
-"+"                             {   return PLUS; }
-"+="                            {   return PLUS_EQUAL; }
-"-"                             {   return MINUS; }
-"-="                            {   return MINUS_EQUAL; }
-"*"                             {   return STAR; }
-"*="                            {   return STAR_EQUAL; }
-"/"                             {   return SLASH; }
-"/="                            {   return SLASH_EQUAL; }
-"%"                             {   return PERCENT; }
-"%="                            {   return PERCENT_EQUAL; }
+"+"                             {   return leafAlloc(PLUS); }
+"+="                            {   return leafAlloc(PLUS_EQUAL); }
+"-"                             {   return leafAlloc(MINUS); }
+"-="                            {   return leafAlloc(MINUS_EQUAL); }
+"*"                             {   return leafAlloc(STAR); }
+"*="                            {   return leafAlloc(STAR_EQUAL); }
+"/"                             {   return leafAlloc(SLASH); }
+"/="                            {   return leafAlloc(SLASH_EQUAL); }
+"%"                             {   return leafAlloc(PERCENT); }
+"%="                            {   return leafAlloc(PERCENT_EQUAL); }
 
-"->"                            {   return ARROW; }
-"=>"                            {   return FAT_ARROW; }
-","                             {   return COMMA; }
-";"                             {   return SEMICOLON; }
-":"                             {   return COLON; }
-"::"                            {   return DOUBLE_COLON; }
-"."                             {   return DOT; }
-".."                            {   return DOUBLE_DOT; }
-"?"                             {   return QUESTION; }
-"@"                             {   return AT; }
-"_"                             {   return UNDERSCORE; }
-"("                             {   return LEFT_PAREN; }
-")"                             {   return RIGHT_PAREN; }
-"["                             {   return LEFT_BRACKET; }
-"]"                             {   return RIGHT_BRACKET; }
-"{"                             {   return LEFT_BRACE; }
-"}"                             {   return RIGHT_BRACE; }
-"#"                             {   return HASH; }
-"$"                             {   return DOLLAR; }
+"->"                            {   return leafAlloc(ARROW); }
+"=>"                            {   return leafAlloc(FAT_ARROW); }
+","                             {   return leafAlloc(COMMA); }
+";"                             {   return leafAlloc(SEMICOLON); }
+":"                             {   return leafAlloc(COLON); }
+"::"                            {   return leafAlloc(DOUBLE_COLON); }
+"."                             {   return leafAlloc(DOT); }
+".."                            {   return leafAlloc(DOUBLE_DOT); }
+"?"                             {   return leafAlloc(QUESTION); }
+"@"                             {   return leafAlloc(AT); }
+"_"                             {   return leafAlloc(UNDERSCORE); }
+"("                             {   return leafAlloc(LEFT_PAREN); }
+")"                             {   return leafAlloc(RIGHT_PAREN); }
+"["                             {   return leafAlloc(LEFT_BRACKET); }
+"]"                             {   return leafAlloc(RIGHT_BRACKET); }
+"{"                             {   return leafAlloc(LEFT_BRACE); }
+"}"                             {   return leafAlloc(RIGHT_BRACE); }
+"#"                             {   return leafAlloc(HASH); }
+"$"                             {   return leafAlloc(DOLLAR); }
 
 
-'\\?.'                          {   return CHAR_LITERAL; }
-\"([^"\n]|(\\\"))*\"            {   return STRING_LITERAL; }
-"-"?[0-9]+                      {   return INTEGER_LITERAL; }
+'\\?.'                          {   return leafAlloc(CHAR_LITERAL); }
+\"([^"\n]|(\\\"))*\"            {   return leafAlloc(STRING_LITERAL); }
+"-"?[0-9]+                      {   return leafAlloc(INTEGER_LITERAL); }
 "-"?([0-9]+(\.[0-9]+)?|[0-9]*\.[0-9]+) { 
-                                    return FLOAT_LITERAL; }
+                                    return leafAlloc(FLOAT_LITERAL); }
 
-[a-zA-Z][a-zA-Z0-9_]*           {   return IDENTIFIER; }
+[a-zA-Z][a-zA-Z0-9_]*           {   return leafAlloc(IDENTIFIER); }
 
 \n                              { lines++; }
 [ \t\r\f\v]                     {}
 ("//"|"#").*                    {}
-"/*"([^*]|"*"+[^/*])*"*"+"/"    {}
+"/*"([^*]|"*"+[^/*])*"*"+"/"    { // Count the number of lines in a block comment.
+                                    char *temp = yytext;
+                                    int i = 0;
+                                    int len = strlen(temp);
+                                    while(temp[i] != '\0' && i < len){
+                                        if(temp[i] == '\n'){
+                                            lines++;
+                                        }
+                                        i++;
+                                    }
+                                }
 .                               {   // Pass any uncaught character as itself.
-                                    return yytext[0];
+                                    return leafAlloc(yytext[0]);
                                 }
 
 %%
 
-void buildToken(int type){
+// Initialize the token struct.
+/* struct token *buildToken(int type, char *text){
     struct token *t = malloc(sizeof(struct token));
     t->category = type;
-    t->text = malloc(strlen(yytext));
-    strcpy(t->text, yytext);
+    t->text = malloc(strlen(text));
+    strcpy(t->text, text);
     t->lineno = lines;
-    t->filename = name;
+    t->filename = filename;
     t->ival = -1;
     t->dval = -1;
     t->sval = NULL;
-    if(type == INTEGER_LITERAL){;
-        sscanf(yytext, "%d", &t->ival);
-    }
-    if(type == FLOAT_LITERAL){
-        sscanf(yytext, "%lf", &t->dval);
-    }
-    if(type == STRING_LITERAL){
-        char *temp = yytext;
-        // Remove the quotes from the string.
-        t->sval = malloc(strlen(temp));
-        int i = 0;
-        int j = 0;
-        int qc = 0;
-        while(temp[i] != '\0'){
-            // Best case scenario, just copy the character.
-            if (temp[i] != '"' && temp[i] != '\\'){
-                t->sval[j] = temp[i];
-                j++;
+    switch(type){
+        case INTEGER_LITERAL:
+            sscanf(text, "%d", &t->ival);
+            break;
+        case FLOAT_LITERAL:
+            sscanf(text, "%lf", &t->dval);
+            break;
+        case STRING_LITERAL:
+            t->sval = malloc(strlen(text));
+            string_literal_parser(text, t->sval);
+            break;
+        case CHAR_LITERAL:
+            t->ival = char_literal_parser(text);
+            if (t->ival == -1){
+                printf("Error: Not a character literal.\n");
             }
+            break;
+    }
+    return t;
+} */
 
-            // Deal with escape characters.
-            if (temp[i] == '\\'){
-                // This is an escape character. Skip it and process the next character.
-                i++;
-                switch(temp[i]){
-                    case 'a':
-                        t->sval[j] = '\a';
-                        break;
-                    case 'b':
-                        t->sval[j] = '\b';
-                        break;
-                    case 'e':
-                        t->sval[j] = '\e';
-                        break;
-                    case 'f':
-                        t->sval[j] = '\f';
-                        break;
-                    case 'n':
-                        t->sval[j] = '\n';
-                        break;
-                    case 'r':
-                        t->sval[j] = '\r';
-                        break;
-                    case 't':
-                        t->sval[j] = '\t';
-                        break;
-                    case 'v':
-                        t->sval[j] = '\v';
-                        break;
-                    case '\\':
-                        t->sval[j] = '\\';
-                        break;
-                    case '\'':
-                        t->sval[j] = '\'';
-                        break;
-                    case '"':
-                        t->sval[j] = '"';
-                        break;
-                    default:
-                        t->sval[j] = temp[i];
-                        break;
-                }
-                j++;
-            }
-
-            // Deal with quotes.
-            if (temp[i] == '"' && qc == 0){
-                qc++;
-                // This is the opening quote. Skip it->
-            } else if (temp[i] == '"' && qc == 1){
-                // This is the closing quote. End here.
-                t->sval[j] = '\0';
-                break;
-            }
-            i++;
-        }
-    }
-    if(type == CHAR_LITERAL){
-        char *temp = yytext;
-        char returnChar;
-        int qc = 0;
-        int i = 0;
-        while(1){
-            if(temp[i] == '\''){
-                switch(qc){
-                    case 0:
-                        // This is the opening quote. Skip it.
-                        qc++;
-                        i++;
-                        break;
-                    case 1:
-                        // This is the closing quote.
-                        return;
-                }
-            }
-            if(temp[i] == '\\'){
-                i++; // Skip the escape character.
-                switch(temp[i]){
-                    case 'a':
-                        returnChar ='\a';
-                        break;
-                    case 'b':
-                        returnChar ='\b';
-                        break;
-                    case 'e':
-                        returnChar ='\e';
-                        break;
-                    case 'f':
-                        returnChar ='\f';
-                        break;
-                    case 'n':
-                        returnChar ='\n';
-                        break;
-                    case 'r':
-                        returnChar ='\r';
-                        break;
-                    case 't':
-                        returnChar ='\t';
-                        break;
-                    case 'v':
-                        returnChar ='\v';
-                        break;
-                    case '\\':
-                        returnChar ='\\';
-                        break;
-                    case '\'':
-                        returnChar ='\'';
-                        break;
-                    case '"':
-                        returnChar ='"';
-                        break;
-                    default:
-                        // This is not a recognized escape character. Just copy it.
-                        returnChar =temp[i];
-                        break;
-                }
-                break;
-            } else {
-                returnChar =temp[i];
-                break;
-            }
-        }
-        t->ival = (int) returnChar;
-    }
-    yytoken = t;
-}
-
+// Clear the flex buffer.
 void clearFlexBuffer(){
     yy_delete_buffer(YY_CURRENT_BUFFER);
+}
+
+// Allocate a token node within the tree.
+int leafAlloc(int i){
+    struct token *t = buildToken(i, yytext, lines, filename);
+    yylval.treeptr = malloc(sizeof(struct tree));
+    yylval.treeptr->leaf = t;
+    yylval.treeptr->production_rule = i;
+    yylval.treeptr->nkids = 0;
+    yylval.treeptr->symbolname = t->text;
+    
+    printf("Leaf node allocated!");
+    printNode(yylval.treeptr, 2);
+    return i;
 }

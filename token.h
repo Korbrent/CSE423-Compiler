@@ -8,7 +8,9 @@
  */
 #ifndef TOKEN_H
 #define TOKEN_H
-#endif
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 struct token {
     int category;   /* int code returned by yylex() */
@@ -19,3 +21,9 @@ struct token {
     double dval;    /* double value of token */
     char *sval;     /* string value of token */
 };
+
+struct token *buildToken(int type, char *text, int lineno, char *filename);
+void string_literal_parser(char *input, char *output);
+int char_literal_parser(char *input);
+
+#endif
