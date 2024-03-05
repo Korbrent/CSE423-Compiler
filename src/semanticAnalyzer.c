@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 
+int __yyerror(char *s, int yystate);
+#define error(s) __yyerror(s, 3)
+
 void build_symbol_tables (struct tree *t)
 {
     /*
@@ -30,10 +33,12 @@ void build_symbol_tables (struct tree *t)
         if(kid != NULL) {
             switch(kid->production_rule) {
                 case ITEM_FN_R:
-                case ITEM_UNSAFE_FN_R:
                     // This subtree is a function declaration
                     function_declaration(kid);
+                case ITEM_UNSAFE_FN_R:
+                    error("Unsafe functions are not allowed in Irony");
                     break;
+                
                 default:
                     break;
             }
@@ -88,6 +93,7 @@ void function_declaration (struct tree *t)
                             // Used in Rust to declare that the function never returns. 
                             // This can be compared to void in C... Loosely ig
                             fn_type = VOID;
+                            break;
                         case TY_R:
                             // This is either a complex type or an empty parenthesis
                             if (kid->nkids == 2) {
@@ -96,14 +102,17 @@ void function_declaration (struct tree *t)
                             } else {
                                 // This is a complex type
                                 // TODO: Throw Not In Irony error code 3
+                                error("Complex types are not allowed in Irony");
                             }
                         case TY_CLOSURE_R:
                             // This is a closure type
                             // TODO: Throw Not In Irony error code 3
+                            error("Closures are not allowed in Irony");
                             break;
                         case IDENTIFIER:
                             // This is a simple type
                             fn_type = getTypeFromIdentifier(kid->leaf->text);
+                            break;
                         default:
                             break;
                         }
@@ -113,10 +122,15 @@ void function_declaration (struct tree *t)
                 break;
             case INNER_ATTRS_AND_BLOCK_R:
                 // This is the function body
-                fn = create_symbol(fn_symbol, fn_decl, fn_type, 0, fn_name);
-                if (fn_name == NULL || fn_type == UNKNOWN) {
+                fn = create_symbol(fn_symbol, fn_decl, fn_type, fn_name);
+                if (fn_name == NULL) {
                     // TODO: Throw error code 3
+                    error("Function name not found");
                 }
+                insert_symbol(fn);
+                scope_enter();
+                build_symbol_tables(t->kids[i]);
+                scope_exit();
                 break;
             default:
                 break;

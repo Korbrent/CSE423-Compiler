@@ -11,7 +11,7 @@
 
 #include "tree.h"
 #include "symtab.h"
-#include "semanticRules.h"
+#include "symbolRules.h"
 #include "parserRules.h"
 #include "rustparse.h"
 

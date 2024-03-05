@@ -26,7 +26,6 @@ int getLineNo();
 void printsymbol(char *s){
     printf("%s\n", s); fflush(stdout);
 }
-
 /**
  * This is a cheap throwaway function used to fulfill the requirements for Lab6
  * It will be deleted after this submission.
@@ -73,11 +72,12 @@ void printsyms(struct tree *t){
         if(t->kids[i] != NULL)
             printsyms(t->kids[i]);
     }
+    SymbolTable st = scope_exit();
 }
 
 extern int __yyerror(char *s, int yystate) {
     fprintf(stderr, "[%d] Error \"%s\" on line %d in file %s\n", yystate, s, getLineNo(), filename);
-    exit(yystate == LEXICAL_ERROR ? 1 : 2);
+    exit(yystate == LEXICAL_ERROR ? 1 : yystate);
 }
 
 int main(int argc, char *argv[]){

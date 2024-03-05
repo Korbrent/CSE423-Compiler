@@ -29,11 +29,16 @@ void pop_table(){
 
 void scope_enter(){
     push_table();
+    stack->subTables = ll_create();
 }
 
 SymbolTable scope_exit(){
     SymbolTable temp = stack;
     pop_table();
+    if (stack != NULL) {
+        // We finished a scope, so we need to add the subtable to the parent
+        ll_add(stack->subTables, temp->table);
+    }
     return temp;
 }
 
@@ -57,33 +62,39 @@ SymbolTableEntry create_symbol
 
     // Type of the symbol (GLOBAL, LOCAL, PARAM, FUNCTION, UNKNOWN)
     new_symbol->symbol_t = symbol;
+    // If implicit, we must enforce type-lookahead to determine type
+    new_symbol->declaration_t = declaration;
+    // The variable type (or return type for functions)
+    new_symbol->type_t = type;
+    // Name of the symbol (identifier)
+    new_symbol->name = name;
+    // Ordinance of the symbol in the table (initialized to -1)
+    new_symbol->ordinance = -1;
+    // Symbol table for the function (if the symbol is a function)
+    new_symbol->fn_table = NULL;
     if(symbol == FUNCTION){
         new_symbol->fn_table = malloc(sizeof(struct sym_table));
         new_symbol->fn_table->next = stack;
     }
-
-    // If implicit, we must enforce type-lookahead to determine type
-    new_symbol->declaration_t = declaration;
-    new_symbol->type_t = type;
-    new_symbol->name = name;
     return new_symbol;
 }
 
 void insert_symbol(SymbolTableEntry symbol){
     // Inserts the symbol into the current scope
-    SymbolTable temp = stack;
-    if(temp == NULL){
+    if(stack == NULL){
         __yyerror("No scope to insert symbol into. This is 100\% a bug in the fec compiler. Fix ur stuff brogrammer", 3);
         return;
     }
 
-    if(ht_search(temp->table, symbol->name) != NULL){
+    if(ht_search(stack->table, symbol->name) != NULL){
         __yyerror("Symbol already exists in the current scope.", 3);
         return;
     }
+
     /* The following will check for shadowing.
      * But we wanna try and implement shadowing if we can for now
      */
+    // SymbolTable temp = stack;
     // temp = temp->next;
     // while(temp != NULL){
     //     if(ht_search(temp->table, symbol->name) != NULL){
@@ -93,6 +104,8 @@ void insert_symbol(SymbolTableEntry symbol){
     //     temp = temp->next;
     // }
     ht_insert(stack->table, symbol->name, symbol);
+    stack->nEntries++;
+    symbol->ordinance = stack->nEntries;
 }
 
 void scope_bind(char *name, SymbolTableEntry entry){
@@ -107,14 +120,15 @@ void scope_bind(char *name, SymbolTableEntry entry){
         return;
     }
     // TODO: FIX THIS!!! IT IS NOT CORRECT!!!!!!!
-    ht_insert(temp->table, name, entry);
+    __yyerror("This function is not implemented yet. Fix ur stuff brogrammer", 3);
+    // ht_insert(temp->table, name, entry);
 }
 
 SymbolTableEntry scope_lookup(char *name){
     // Returns the first entry for the name in all scopes
     SymbolTable temp = stack;
     while(temp != NULL){
-        SymbolTableEntry entry = ht_search(temp->table, name);
+        SymbolTableEntry entry = (SymbolTableEntry)ht_search(temp->table, name);
         if(entry != NULL){
             return entry;
         }
@@ -130,7 +144,7 @@ SymbolTableEntry scope_lookup_current(char *name){
         printf("No scope to look up symbol in. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer\n");
         return NULL;
     }
-    SymbolTableEntry entry = ht_search(temp->table, name);
+    SymbolTableEntry entry = (SymbolTableEntry)ht_search(temp->table, name);
     if(entry != NULL){
         return entry;
     }

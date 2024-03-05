@@ -11,6 +11,7 @@
 
 #include "symbolRules.h"
 #include "hashtable.h"
+#include "linkedlist.h"
 
 typedef struct sym_table *SymbolTable;
 typedef struct sym_entry *SymbolTableEntry;
@@ -47,6 +48,7 @@ struct sym_table {
     // struct sym_table *parent;
     HashTable table;
     SymbolTable next; // Pointer to the next table in the stack, (lower layer in scope. Bottom is global scope)
+    List subTables; // List of subtables (This points downward, unlike next which points upward)
 };
 // *SymbolTable;
 
