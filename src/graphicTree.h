@@ -19,6 +19,6 @@ void print_branch(struct tree *t, FILE *f);
 char *yyname(int);
 void print_leaf(struct tree *t, FILE *f);
 void print_graph2(struct tree *t, FILE *f);
-void print_graph(struct tree *t, char *filename);
+void print_graph(struct tree *t, char *file);
 
 #endif

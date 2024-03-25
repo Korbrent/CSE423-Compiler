@@ -23,17 +23,17 @@ typedef enum {
 } declaration_t;
 
 typedef enum {
-    INT_8,
-    INT_16,
-    INT_32,
+    INT_8,          // not implemented
+    INT_16,         // not implemented
+    INT_32,         // converted to INT_64
     INT_64,
-    INT_128,
-    U_INT_8,
-    U_INT_16,
-    U_INT_32,
+    INT_128,        // not implemented
+    U_INT_8,        // not implemented
+    U_INT_16,       // not implemented
+    U_INT_32,       // converted to U_INT_64
     U_INT_64,
-    U_INT_128,
-    FLOAT,
+    U_INT_128,      // not implemented
+    FLOAT,          // converted to DOUBLE
     DOUBLE,
     BOOL,
     CHAR,

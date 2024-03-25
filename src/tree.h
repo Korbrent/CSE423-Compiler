@@ -27,8 +27,8 @@ struct tree* treealloc(int production_rule, char *symbolname, int nkids, ...);
  * Hooray for OOP principles.
  */
 // struct tree* treeRoot;
-extern void setTreeRoot(struct tree *t);
-extern struct tree* getTreeRoot();
+void setTreeRoot(struct tree *t);
+struct tree* getTreeRoot();
 
 void treefree(struct tree *t);
 

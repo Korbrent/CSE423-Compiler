@@ -7,10 +7,11 @@
 #include "token.h"
 #include "rustparse.h"
 #include "tree.h"
+#include "main.h"
 int lineno = 0;
 // extern struct token *yytoken;
 extern void clearFlexBuffer();
-char *filename;
+// char *filename;
 
 extern int getLineNo(){
     return lineno;
@@ -196,7 +197,7 @@ void clearFlexBuffer(){
 
 // Allocate a token node within the tree.
 int leafAlloc(int i){
-    struct token *t = buildToken(i, yytext, lineno, filename);
+    struct token *t = buildToken(i, yytext, lineno, getFileName());
     yylval.treeptr = malloc(sizeof(struct tree));
 
     yylval.treeptr->id = getTreeId();

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 List ll_create() {
     List list = (List)malloc(sizeof(struct list_t));
@@ -26,6 +27,7 @@ void ll_destroy(List list) {
 }
 
 void ll_add(List list, void *data) {
+    assert(list != NULL);
     Node node = (Node)malloc(sizeof(struct node_t));
     node->data = data;
     node->next = NULL;
@@ -141,4 +143,8 @@ Data ll_remove(List list, int index) {
     free(current);
     list->size--;
     return data;
+}
+
+int ll_size(List list) {
+    return list->size;
 }

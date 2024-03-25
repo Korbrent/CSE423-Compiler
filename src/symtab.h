@@ -33,6 +33,7 @@ struct sym_entry {
     type_t type_t;
     int ordinance; // Ordinance of the symbol in the table
     SymbolTable fn_table; // Symbol table for the function (if the symbol is a function)
+    int is_mutable;
 };
 // *SymbolTableEntry;
 
@@ -49,6 +50,7 @@ struct sym_table {
     HashTable table;
     SymbolTable next; // Pointer to the next table in the stack, (lower layer in scope. Bottom is global scope)
     List subTables; // List of subtables (This points downward, unlike next which points upward)
+    List params; // List of parameters for the function (Of type SymbolTableEntry)
 };
 // *SymbolTable;
 
@@ -70,6 +72,14 @@ SymbolTable scope_exit();
  */
 int scope_level();
 
+/**
+ * @brief Adds a symbol to the root of the stack
+ */
+void insert_global_symbol(SymbolTableEntry symbol);
+
+/**
+ * @brief Adds a symbol to the top of the stack
+ */
 void insert_symbol(SymbolTableEntry symbol);
 
 /**
@@ -93,5 +103,10 @@ SymbolTableEntry scope_lookup_current(char *name);
 
 void free_table(SymbolTable table);
 void free_symbol(SymbolTableEntry symbol);
+symbol_t getCurrentSymbolType();
+
+SymbolTableEntry *getParams();
+
+void print_table();
 
 #endif

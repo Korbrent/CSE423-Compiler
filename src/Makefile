@@ -10,8 +10,8 @@ OUTPUT = fec
 MAIN_FILE = main.c
 FLEX_FILE = rustlex.l
 BISON_FILE = rustparse.y
-C_FILES = token.c tree.c graphicTree.c hashtable.c symtab.c linkedlist.c
-HEADER_FILES = token.h tree.h parserRules.h graphicTree.h hashtable.h symtab.h linkedlist.h
+C_FILES = token.c tree.c graphicTree.c hashtable.c symtab.c linkedlist.c semanticAnalyzer.c
+HEADER_FILES = token.h tree.h parserRules.h graphicTree.h hashtable.h symtab.h linkedlist.h semanticAnalyzer.h
 
 # Compilers
 CC = gcc

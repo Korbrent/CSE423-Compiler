@@ -15,17 +15,18 @@
 #include "tree.h"
 #include "graphicTree.h"
 #include "symtab.h"
+#include "semanticAnalyzer.h"
 
 int yyparse();
 extern FILE *yyin;
-extern char *filename;
+char *filename;
 struct token *yytoken;
 void clearFlexBuffer();
 int getLineNo();
 
-void printsymbol(char *s){
-    printf("%s\n", s); fflush(stdout);
-}
+// void printsymbol(char *s){
+//     printf("%s\n", s); fflush(stdout);
+// }
 /**
  * This is a cheap throwaway function used to fulfill the requirements for Lab6
  * It will be deleted after this submission.
@@ -37,47 +38,52 @@ void printsymbol(char *s){
  * 
  * My next behemoth is finishing semanticAnalyzer.{c,h}
  */
-void printsyms(struct tree *t){
-    if(scope_level() == -1){
-        scope_enter();
-    }
-    if (t->leaf != NULL){
-        if(t->leaf->category == IDENTIFIER){
-            SymbolTableEntry s = create_symbol(UNKNOWN, IMPLICIT, UNKNOWN_TYPE, t->leaf->text);
-            if(scope_lookup_current(s->name) == NULL)
-                insert_symbol(s);
-            for(int i = 0; i < scope_level(); i++){
-                printf("  ");
-            }
-            printsymbol(t->leaf->text);
-        }
-        if(t->leaf->category == LEFT_BRACE){
-            scope_enter();
-            for(int i = 0; i < scope_level(); i++){
-                printf("  ");
-            }
-            printf("----------------\n");
-        }
-        if(t->leaf->category == RIGHT_BRACE){
-            for(int i = 0; i < scope_level(); i++){
-                printf("  ");
-            }
-            printf("----------------\n");
-            SymbolTable st = scope_exit();
-            free_table(st);
-        }
-        return;
-    }
-    for (int i = 0; i < t->nkids; i++){
-        if(t->kids[i] != NULL)
-            printsyms(t->kids[i]);
-    }
-    SymbolTable st = scope_exit();
-}
+// void printsyms(struct tree *t){
+//     if(scope_level() == -1){
+//         scope_enter();
+//     }
+//     if (t->leaf != NULL){
+//         if(t->leaf->category == IDENTIFIER){
+//             SymbolTableEntry s = create_symbol(UNKNOWN, IMPLICIT, UNKNOWN_TYPE, t->leaf->text);
+//             if(scope_lookup_current(s->name) == NULL)
+//                 insert_symbol(s);
+//             for(int i = 0; i < scope_level(); i++){
+//                 printf("  ");
+//             }
+//             printsymbol(t->leaf->text);
+//         }
+//         if(t->leaf->category == LEFT_BRACE){
+//             scope_enter();
+//             for(int i = 0; i < scope_level(); i++){
+//                 printf("  ");
+//             }
+//             printf("----------------\n");
+//         }
+//         if(t->leaf->category == RIGHT_BRACE){
+//             for(int i = 0; i < scope_level(); i++){
+//                 printf("  ");
+//             }
+//             printf("----------------\n");
+//             SymbolTable st = scope_exit();
+//             free_table(st);
+//         }
+//         return;
+//     }
+//     for (int i = 0; i < t->nkids; i++){
+//         if(t->kids[i] != NULL)
+//             printsyms(t->kids[i]);
+//     }
+//     SymbolTable st = scope_exit();
+//     free_table(st);
+// }
 
 extern int __yyerror(char *s, int yystate) {
     fprintf(stderr, "[%d] Error \"%s\" on line %d in file %s\n", yystate, s, getLineNo(), filename);
     exit(yystate == LEXICAL_ERROR ? 1 : yystate);
+}
+
+char *getFileName() {
+    return filename;
 }
 
 int main(int argc, char *argv[]){
@@ -138,6 +144,7 @@ int main(int argc, char *argv[]){
     }
 
     // Loop through the files
+    List roots = ll_create();
     for (int fileIndex = 0; fileIndex < numFiles; fileIndex++) {
         filename = filenames[fileIndex];
         // Open the file & check if the file exists
@@ -164,7 +171,7 @@ int main(int argc, char *argv[]){
             strcat(dotfile, ".dot");
             // Shrink the malloc dotfile
             dotfile = realloc(dotfile, strlen(dotfile) + 1);
-            printf("\nPrinting dotfile to %s\n", dotfile);
+            // printf("\nPrinting dotfile to %s\n", dotfile);
             print_graph(getTreeRoot(), dotfile);
         }
         
@@ -172,16 +179,25 @@ int main(int argc, char *argv[]){
             printf("\nPrinting abstract syntax tree\n");
             printTree();
         }
-        
-        if (symtabFlag != 0) {
-            printf("\nPrinting symbol table\n");
-            printsyms(getTreeRoot());
-        }
-        treefree(getTreeRoot());
+        printf("\nSemantic Analysis\n");
+        build_symbol_tables(getTreeRoot());
+
+        // if (symtabFlag != 0) {
+        //     printf("\nPrinting symbol table\n");
+        //     print_table();
+        // }
+        ll_add(roots, getTreeRoot());
         clearFlexBuffer();
+    }
+
+    if (symtabFlag != 0) {
+        printf("\nPrinting symbol table\n");
+        print_table();
     }
 
     for (int i = 0; i < numFiles; i++) {
         free(filenames[i]);
+        (struct tree *) ll_remove(roots, 0);
+        treefree(getTreeRoot());
     }
 }

@@ -38,14 +38,17 @@ void ht_delete(HashTable ht) {
         while (item != NULL) {
             HashItem temp = item;
             item = item->next;
+            temp->next = NULL;
+            // TODO: THIS IS HARD
             free(temp);
         }
     }
 }
 
 // Hash a string to an index
-int hash(char *key) {
-    int hash = 0;
+// http://www.cse.yorku.ca/~oz/hash.html
+unsigned int hash(char *key) {
+    unsigned int hash = 0;
     for (int i = 0; key[i] != '\0'; i++) {
         hash = (hash << 5) + key[i];
     }
@@ -54,23 +57,42 @@ int hash(char *key) {
 
 // Insert a key-value pair into the hash table
 void ht_insert(HashTable ht, char *key, void *value) {
+    fprintf(stderr, "in ht_insert\n");
     if(ht_search(ht, key) != NULL){
         printf("Key already exists in the hash table\n");
         return;
     }
     int index = hash(key);
+    fprintf(stderr,"key %s hash %d\n",key,index);
+
     HashItem new_item = malloc(sizeof(struct ht_item));
     new_item->key = key;
     new_item->value = value;
     new_item->next = ht->items[index];
     ht->items[index] = new_item;
+
+    for(int i=0; i<HASH_SIZE; i++)
+    {
+        if(ht->items[i] != NULL)
+            fprintf(stderr,"index %d has %s\n",i,ht->items[i]->key);
+    }
 }
 
 // Search for a key in the hash table
 void *ht_search(HashTable ht, char *key) {
+    fprintf(stderr, "in ht_search\n");
     int index = hash(key);
+    fprintf(stderr,"key %s hash %d\n",key,index);
+
+    for(int i=0; i<HASH_SIZE; i++)
+    {
+        if(ht->items[i] != NULL)
+            fprintf(stderr,"index %d has %s\n",i,ht->items[i]->key);
+    }
+
     HashItem item = ht->items[index];
     while (item != NULL) {
+        fprintf(stderr,"found %s\n",item->key);
         if (strcmp(item->key, key) == 0) {
             return item->value;
         }

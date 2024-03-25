@@ -2,3 +2,10 @@ testCode/*
 src/test.c
 a.out
 src/rustparse.h
+*.o
+*.zip
+*.jpg
+*.png
+*.rs
+*.dot
+todo*

@@ -23,6 +23,6 @@ void ll_add(List list, void *data);
 void ll_insert(List list, void *data, int index);
 Data ll_get(List list, int index);
 Data ll_remove(List list, int index);
-
+int ll_size(List list);
 
 #endif
