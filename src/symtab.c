@@ -20,7 +20,7 @@ List roots; // One for each file
 List names; // Name of each file
 int isFunction = 0;
 
-int __yyerror(char *s, int yystate);
+void __yyerror(char *s, int errorCode, int lineno, int returnType);
 
 void push_table(){
     SymbolTable new_table = malloc(sizeof(struct sym_table));
@@ -103,13 +103,14 @@ SymbolTableEntry create_symbol
     //     // new_symbol->fn_table = stack;
     // }
     new_symbol->is_mutable = 0;
+    new_symbol->line_no = -1;
     return new_symbol;
 }
 
 void insert_global_symbol(SymbolTableEntry symbol) {
     // Inserts the symbol into the global scope
     if(stack == NULL){
-        __yyerror("No scope to insert symbol into. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer", 3);
+        __yyerror("No scope to insert symbol into. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer", 3, symbol->line_no, 3);
         return;
     }
 
@@ -118,7 +119,7 @@ void insert_global_symbol(SymbolTableEntry symbol) {
         temp = temp->next;
     }
     if(ht_search(temp->table, symbol->name) != NULL){
-        __yyerror("Symbol already exists in the current scope.", 3);
+        __yyerror("Symbol already exists in the current scope.", 3, symbol->line_no, 3);
         return;
     }
     symbol->ordinance = temp->nEntries++;
@@ -130,12 +131,12 @@ void insert_global_symbol(SymbolTableEntry symbol) {
 void insert_symbol(SymbolTableEntry symbol){
     // Inserts the symbol into the current scope
     if(stack == NULL){
-        __yyerror("No scope to insert symbol into. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer", 3);
+        __yyerror("No scope to insert symbol into. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer", 3, symbol->line_no, 3);
         return;
     }
 
     if(ht_search(stack->table, symbol->name) != NULL){
-        __yyerror("Symbol already exists in the current scope.", 3);
+        __yyerror("Symbol already exists in the current scope.", 3, symbol->line_no, 3);
         return;
     }
 
@@ -175,15 +176,15 @@ void scope_bind(char *name, SymbolTableEntry entry){
     // Binds name to the entry in the current scope
     SymbolTable temp = stack;
     if(temp == NULL){
-        __yyerror("No scope to bind symbol in. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer", 3);
+        __yyerror("No scope to bind symbol in. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer", 3, entry->line_no, 3);
         return;
     }
     if(ht_search(temp->table, name) != NULL){
-        __yyerror("Symbol already exists in the current scope.", 3);
+        __yyerror("Symbol already exists in the current scope.", 3, entry->line_no, 3);
         return;
     }
     // TODO: FIX THIS!!! IT IS NOT CORRECT!!!!!!!
-    __yyerror("This function is not implemented yet. Fix ur stuff brogrammer", 3);
+    __yyerror("This function is not implemented yet. Fix ur stuff brogrammer", 3, -1, 3);
     ht_insert(temp->table, name, entry);
 }
 // 
@@ -204,7 +205,7 @@ SymbolTableEntry scope_lookup_current(char *name){
     // Returns the first entry for the name in the current scope
     SymbolTable temp = stack;
     if(temp == NULL){
-        printf("No scope to look up symbol in. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer\n");
+        __yyerror("No scope to look up symbol in. This is 100 percent a bug in the fec compiler. Fix ur stuff brogrammer\n", 3, -1, 3);
         return NULL;
     }
     SymbolTableEntry entry = (SymbolTableEntry)ht_search(temp->table, name);
@@ -225,7 +226,7 @@ void free_table(SymbolTable table){
             free_symbol(param);
             param = ll_remove(table->params, 0);
         }
-        ll_destroy(table->params);
+        ll_delete(table->params);
     }
     if (table->subTables != NULL){
         SymbolTable subTable = ll_remove(table->subTables, 0);
@@ -233,7 +234,7 @@ void free_table(SymbolTable table){
             free_table(subTable);
             subTable = ll_remove(table->subTables, 0);
         }
-        ll_destroy(table->subTables);
+        ll_delete(table->subTables);
     }
     free(table);
 }
@@ -259,12 +260,13 @@ void print_table() {
     for (int i = 0; i < ll_size(roots); i++) {
         SymbolTable root = (SymbolTable)ll_get(roots, i);
         if(root == NULL){
-            printf("Root is NULL\n");
+            fprintf(stderr, "Root is NULL\n");
             continue;
         }
-        printf("File: %s\n", (char *)ll_get(names, i));
+        printf("--- File: %s ---\n", (char *)ll_get(names, i));
 
         print_table_recursive(root, 0);
+        printf("--- End of file ---\n");
     }
 }
 
@@ -294,7 +296,6 @@ void print_table_recursive(SymbolTable symtab, int level) {
     if(symtab == NULL){
         return;
     }
-    // fprintf(stderr, "Printing table\n");
     assert(symtab->table != NULL);
     HashTable table = symtab->table;
     for (int i = 0; i < HASH_SIZE; i++) {
@@ -306,15 +307,20 @@ void print_table_recursive(SymbolTable symtab, int level) {
             }
             printf("%s [%s]\n", item->key, type_to_str(entry->type_t));
             if (entry->fn_table != NULL) {
-                // printf("Function table\n");
+                for (int j = 0; j < level - 1; j++){
+                    printf("  ");
+                }
+                printf("-- fn table --\n");
                 print_table_recursive(entry->fn_table, level + 1);
+                for (int j = 0; j < level - 1; j++){
+                    printf("  ");
+                }
+                printf("--\n");
             }
             item = item->next;
         }
-        // printf("Moving on\n");
     }
     for (int i = 0; i < ll_size(symtab->subTables); i++) {
-        // fprintf(stderr, "Subtables\n");
         SymbolTable subTable = (SymbolTable)ll_get(symtab->subTables, i);
         print_table_recursive(subTable, level + 1);
     }

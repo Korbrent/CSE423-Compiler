@@ -24,62 +24,12 @@ struct token *yytoken;
 void clearFlexBuffer();
 int getLineNo();
 
-// void printsymbol(char *s){
-//     printf("%s\n", s); fflush(stdout);
-// }
-/**
- * This is a cheap throwaway function used to fulfill the requirements for Lab6
- * It will be deleted after this submission.
- * 
- * I was busy working on planning the recursive function for building the symbol tables.
- * I wanted to pre-plan how I was gonna handle semanticAnalyzer.{c,h} beforehand
- * 
- * Although look how pretty my symtab.{c,h} and hashtable.{c,h} files are.
- * 
- * My next behemoth is finishing semanticAnalyzer.{c,h}
- */
-// void printsyms(struct tree *t){
-//     if(scope_level() == -1){
-//         scope_enter();
-//     }
-//     if (t->leaf != NULL){
-//         if(t->leaf->category == IDENTIFIER){
-//             SymbolTableEntry s = create_symbol(UNKNOWN, IMPLICIT, UNKNOWN_TYPE, t->leaf->text);
-//             if(scope_lookup_current(s->name) == NULL)
-//                 insert_symbol(s);
-//             for(int i = 0; i < scope_level(); i++){
-//                 printf("  ");
-//             }
-//             printsymbol(t->leaf->text);
-//         }
-//         if(t->leaf->category == LEFT_BRACE){
-//             scope_enter();
-//             for(int i = 0; i < scope_level(); i++){
-//                 printf("  ");
-//             }
-//             printf("----------------\n");
-//         }
-//         if(t->leaf->category == RIGHT_BRACE){
-//             for(int i = 0; i < scope_level(); i++){
-//                 printf("  ");
-//             }
-//             printf("----------------\n");
-//             SymbolTable st = scope_exit();
-//             free_table(st);
-//         }
-//         return;
-//     }
-//     for (int i = 0; i < t->nkids; i++){
-//         if(t->kids[i] != NULL)
-//             printsyms(t->kids[i]);
-//     }
-//     SymbolTable st = scope_exit();
-//     free_table(st);
-// }
-
-extern int __yyerror(char *s, int yystate) {
-    fprintf(stderr, "[%d] Error \"%s\" on line %d in file %s\n", yystate, s, getLineNo(), filename);
-    exit(yystate == LEXICAL_ERROR ? 1 : yystate);
+extern void __yyerror(char *s, int errorCode, int lineno, int returnType) {
+    if(lineno != -1)
+        fprintf(stderr, "[%d] Error \"%s\" on line %d in file %s\n", errorCode, s, lineno, filename);
+    else
+        fprintf(stderr, "[%d] Error \"%s\" in file %s\n", errorCode, s, filename);
+    exit(returnType);
 }
 
 char *getFileName() {
@@ -152,10 +102,11 @@ int main(int argc, char *argv[]){
             printf("File %s does not exist\n", filename);
             return 1;
         }
-
-        // Instead of calling the lexer, call the parser
+        fprintf(stdout, "Now working on file \"%s\"\n", filename);
+        
+        // Call the parser
         int yp = yyparse();
-        printf("yyparse returns %d\n", yp);
+        fprintf(stderr, "yyparse returns %d\n", yp);
 
         // Print the tree if -dot argument is provided
         if (dotFlag != 0) {
@@ -179,13 +130,8 @@ int main(int argc, char *argv[]){
             printf("\nPrinting abstract syntax tree\n");
             printTree();
         }
-        printf("\nSemantic Analysis\n");
         build_symbol_tables(getTreeRoot());
 
-        // if (symtabFlag != 0) {
-        //     printf("\nPrinting symbol table\n");
-        //     print_table();
-        // }
         ll_add(roots, getTreeRoot());
         clearFlexBuffer();
     }

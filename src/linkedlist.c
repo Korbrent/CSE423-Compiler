@@ -5,6 +5,10 @@
 #include <string.h>
 #include <assert.h>
 
+/**
+ * Create a new List
+ * @return List type
+ */
 List ll_create() {
     List list = (List)malloc(sizeof(struct list_t));
     list->head = NULL;
@@ -13,19 +17,28 @@ List ll_create() {
     return list;
 }
 
-void ll_destroy(List list) {
+/**
+ * Delete a List
+ * @param list List to be deleted
+ * @note the elements within the list should be freed elsewhere
+ */
+void ll_delete(List list) {
     Node current = list->head;
     while (current != NULL) {
         Node next = current->next;
-        // TODO: Accept a function pointer to a function that frees the data
         if(current->data != NULL)
-            printf("Data within linked list should be freed before destroying the list!\n");
+            fprintf(stderr, "Data within linked list should be freed before destroying the list!\n");
         free(current);
         current = next;
     }
     free(list);
 }
 
+/**
+ * Add an element to the List
+ * @param list List to be added to
+ * @param data pointer to the data type to be inserted
+ */
 void ll_add(List list, void *data) {
     assert(list != NULL);
     Node node = (Node)malloc(sizeof(struct node_t));
@@ -42,9 +55,15 @@ void ll_add(List list, void *data) {
     list->size++;
 }
 
+/**
+ * Insert element into the List
+ * @param list List to be added to
+ * @param data pointer to data to be inserted
+ * @param index index to insert in 
+*/
 void ll_insert(List list, void *data, int index) {
     if (index < 0 || index >= list->size) {
-        printf("Index out of bounds\n");
+        fprintf(stderr, "Index out of bounds\n");
         return;
     }
     Node node = (Node)malloc(sizeof(struct node_t));
@@ -82,9 +101,16 @@ void ll_insert(List list, void *data, int index) {
     list->size++;
 }
 
+/**
+ * Gets data from the List
+ * @param list List to get data from
+ * @param index index of data to get
+ * @return pointer to data at index
+ * @note must be cast to expected return type
+*/
 Data ll_get(List list, int index) {
     if (index < 0 || index >= list->size) {
-        printf("Index out of bounds\n");
+        fprintf(stderr, "Index out of bounds\n");
         return NULL;
     }
     Node current;
@@ -102,11 +128,17 @@ Data ll_get(List list, int index) {
     return current->data;
 }
 
+/**
+ * Remove an element from the List
+ * @param list List to be removed from
+ * @param index index to remove
+ * @return pointer to data that was removed
+*/
 Data ll_remove(List list, int index) {
     if (index >= list->size) {
         // If its 0 it could just be a while-looping remove. Keep those silent
         if (!index == 0)
-            printf("Index out of bounds\n");
+            fprintf(stderr, "Index out of bounds\n");
         return NULL;
     }
     Node current;
@@ -145,6 +177,11 @@ Data ll_remove(List list, int index) {
     return data;
 }
 
+/**
+ * Get the size of the list
+ * @param list List to get size of
+ * @return size of list
+*/
 int ll_size(List list) {
     return list->size;
 }

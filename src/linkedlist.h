@@ -18,7 +18,7 @@ struct list_t {
 };
 
 List ll_create();
-void ll_destroy(List list);
+void ll_delete(List list);
 void ll_add(List list, void *data);
 void ll_insert(List list, void *data, int index);
 Data ll_get(List list, int index);

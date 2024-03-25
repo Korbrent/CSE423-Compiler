@@ -26,12 +26,12 @@
 #include <stdio.h>
 #include <string.h>
 
-int __yyerror(char *s, int yystate);
-#define error(s) __yyerror(s, 3)
+void __yyerror(char *s, int errorCode, int lineno, int returnType);
+#define error(s, l) __yyerror(s, 3, l, 3)
 
-
+int search_for_line_number(struct tree *t);
 void function_declaration (struct tree *t);
-type_t getTypeFromIdentifier (char *ident);
+type_t getTypeFromIdentifier (char *ident, int l);
 void recursiveParseParams(SymbolTableEntry *params, struct tree *t, int len);
 SymbolTableEntry *parseParams(struct tree *t);
 void recursive_pats_or(struct tree *t);
@@ -46,19 +46,35 @@ type_t get_type_from_literal (struct tree *t);
 
 void semantic_analyzer (struct tree *t){
     // This function should call the build_symbol_tables function
-    printf("Semantic_Analyzer called.\n");
     build_symbol_tables(t);
+    if (scope_level() != -1)
+        error("Mismatched scoping. This shouldn't happen.", -1);
+}
+
+int search_for_line_number(struct tree *t){
+    if (t == NULL)
+        return -1;
+
+    if (t->leaf != NULL)
+        return t->leaf->lineno;
+
+    for (int i = 0; i < t->nkids; i++){
+        if (t->kids[i] == NULL)
+            continue;
+        int r = search_for_line_number(t->kids[i]);
+        if (r != -1)
+            return r;
+    }
+    return -1;
 }
 
 void build_symbol_tables (struct tree *t)
 {
     // This function should build the symbol tables for the given tree
-    printf("Build_Symbol_tables called (scope %d).\t %s [%d] \n", scope_level(), t->symbolname, t->production_rule);
 
     if (scope_level() == -1) {
-        printf("From within the if statement: %d \n", scope_level());
         if(!(t->production_rule == CRATE_R)){
-            error("The root of the tree must be a crate type.");
+            error("The root of the tree must be a crate type.", search_for_line_number(t));
         }
         // Create the global scope
         scope_enter();
@@ -74,7 +90,7 @@ void build_symbol_tables (struct tree *t)
             case INNER_ATTR_R:
             case INNER_ATTRS_R:
                 // We dont have these right now. Do nothing, just print to let the author know.
-                printf("Inner attrs are not in the irony language. They will be simply ignored for now.");
+                fprintf(stderr, "Inner attrs are not in the irony language. They will be simply ignored for now.");
                 break;
 
             case MOD_ITEMS_R:
@@ -92,7 +108,7 @@ void build_symbol_tables (struct tree *t)
             
             // Stmt items
             case ITEM_MACRO_R:
-                error("Item macros are not valid in Irony.");
+                error("Item macros are not valid in Irony.", search_for_line_number(t));
                 break;
             case ITEM_STATIC_R:
                 // This subtree is a static variable declaration
@@ -100,7 +116,7 @@ void build_symbol_tables (struct tree *t)
                 // I think thats similar enough to just treat it the same as a const.
                 if (kid->nkids == 8) {
                     // This is a mutable static. Thats kinda dumb imo
-                    error("Sorry, mutable statics aren't allowed. Why would you even want to do that?");
+                    error("Sorry, mutable statics aren't allowed. Why would you even want to do that?", search_for_line_number(t));
                 }
                 // Fall through
             case ITEM_CONST_R:
@@ -112,13 +128,13 @@ void build_symbol_tables (struct tree *t)
                 break;
             case ITEM_TYPE_R:
                 // This subtree is a type declaration
-                error("Type declarations are not supported in Irony.");
+                error("Type declarations are not supported in Irony.", search_for_line_number(t));
                 break;
             case VIEW_ITEM_R:
                 case EXTERN_FN_ITEM_R:  // These are also view items
                 case USE_ITEM_R:        // These are also view items
                 // This subtree is a view item or an external function declaration
-                error("Views are not supported in Irony.");
+                error("Views are not supported in Irony.", search_for_line_number(t));
                 break;
 
             // Block items
@@ -127,27 +143,27 @@ void build_symbol_tables (struct tree *t)
                 function_declaration(kid);
                 break;
             case ITEM_UNSAFE_FN_R:
-                error("Unsafe functions are not allowed in Irony");
+                error("Unsafe functions are not allowed in Irony", search_for_line_number(t));
                 break;
             case ITEM_MOD_R:
             case ITEM_FOREIGN_MOD_R:
                 // This subtree is a module declaration
-                error("Modules are not allowed in Irony");
+                error("Modules are not allowed in Irony", search_for_line_number(t));
                 break;
             case ITEM_STRUCT_R:
-                error("Structs are not allowed in Irony");
+                error("Structs are not allowed in Irony", search_for_line_number(t));
                 break;
             case ITEM_ENUM_R:
-                error("Enums are not allowed in Irony");
+                error("Enums are not allowed in Irony", search_for_line_number(t));
                 break;
             case ITEM_UNION_R:
-                error("Unions are not allowed in Irony");
+                error("Unions are not allowed in Irony", search_for_line_number(t));
                 break;
             case ITEM_TRAIT_R:
-                error("Traits are not allowed in Irony");
+                error("Traits are not allowed in Irony", search_for_line_number(t));
                 break;
             case ITEM_IMPL_R:
-                error("Impls are not allowed in Irony");
+                error("Impls are not allowed in Irony", search_for_line_number(t));
                 break;
 
             // Statements
@@ -177,11 +193,11 @@ void build_symbol_tables (struct tree *t)
                 // if the first kid is UNSAFE then throw an error
 
                 if(kid->kids[0]->production_rule == UNSAFE){
-                    error("Unsafe blocks are not allowed in Irony");
+                    error("Unsafe blocks are not allowed in Irony", search_for_line_number(t));
                 }
                 // if the second kid a BANG then throw an error
                 if(kid->kids[1]->production_rule == BANG){
-                    error("Path expression blocks are not allowed in Irony");
+                    error("Path expression blocks are not allowed in Irony", search_for_line_number(t));
                 }
                 // fall through
                 case EXPR_MATCH_R:
@@ -204,24 +220,24 @@ void build_symbol_tables (struct tree *t)
 
             case BLOCK_EXPR_DOT_R:
                 // This subtree is a block expression with a dot
-                error("Dot expressions are not allowed in Irony");
+                error("Dot expressions are not allowed in Irony", search_for_line_number(t));
                 break;
 
 
             case OUTER_ATTRS_R:
             case OUTER_ATTR_R:
-                printf("Outer attrs are not in the irony language. They will be simply ignored for now.");
+                fprintf(stderr, "Outer attrs are not in the irony language. They will be simply ignored for now.");
                 break;
 
             case PATH_EXPR_R:
                 case PATH_GENERIC_ARGS_WITH_COLONS_R:
                 case SUPER:
-                error("Path expressions are not in the irony language.");
+                error("Path expressions are not in the irony language.", search_for_line_number(t));
                 break;
 
             case PUB:
                 // This is a public declaration
-                error("Public declarations are not allowed in Irony");
+                error("Public declarations are not allowed in Irony", search_for_line_number(t));
                 break;
 
             case SEMICOLON:
@@ -231,19 +247,9 @@ void build_symbol_tables (struct tree *t)
             case IDENTIFIER:
                 // This is an identifier
                 // Look it up and make sure it exists in the symbol table
-
-                // Tbh this should never get called so I am gonna add a printline here to check if ever does.
-                printf("build_symbol_tables - case IDENTIFIER\n");
-                // type_t type = getTypeFromIdentifier(kid->leaf->text);
-                // if(type != UNKNOWN_TYPE)
-                //     break;
-                // if (kid->leaf == NULL) 
-                //     error("NULL leaf at identifier");
-                // if (kid->leaf->text == NULL)
-                //     error("NULL text at identifier");
                 if (scope_lookup(kid->leaf->text) == NULL){
                     print_table();
-                    error("Identifier not found in symbol table");
+                    error("Identifier not found in symbol table", search_for_line_number(t));
                 }
                 // Identifier was previously declared. Seems like we're good.
                 break;
@@ -252,21 +258,13 @@ void build_symbol_tables (struct tree *t)
         }
     }   
 
-    if(scope_level() == 0 && t->production_rule == CRATE_R){\
-        printf("From within the if statement: %d \n", scope_level());
-        // We are at the end of the global scope
-        // if(!(t->production_rule == CRATE_R)){
-        //     error("The root of the tree must be a crate type.");
-        // }
+    if(scope_level() == 0 && t->production_rule == CRATE_R){
         scope_exit();
-        printf("Global scope exited.\n");
     }
-    printf("Build_Symbol_tables done.\n");
 }
 
 void function_declaration (struct tree *t)
 {
-    printf("Function Declaration called.\t %s [%d] \n", t->symbolname, t->production_rule);
     // Anything passed to this should be a subtree of ITEM_FN_R or ITEM_UNSAFE_FN_R
     char *fn_name = NULL;
     symbol_t fn_symbol = FUNCTION;
@@ -289,29 +287,26 @@ void function_declaration (struct tree *t)
             case IDENTIFIER:
                 // This is the function name
                 fn_name = t->kids[i]->leaf->text;
-                printf("Function name: %s\n", fn_name);
                 break;
 
             case FN_DECL_R:
                 // This is the function declaration
-                printf("Function declaration\n");
                 struct tree *fn_decl = t->kids[i];
 
                 struct tree *fn_params = fn_decl->kids[0];
                 // First and last element of fn_params should be LEFT_PAREN and RIGHT_PAREN
                 // Middle param is either NULL, PARAM_R, or PARAMS_R
                 if(fn_params == NULL)
-                    error("Expected a parameter list");
+                    error("Expected a parameter list", search_for_line_number(t));
                 if (fn_params->nkids != 3)
-                    error("Incorrect number of kids in parameter list");
+                    error("Incorrect number of kids in parameter list", search_for_line_number(t));
                 if (fn_params->kids[0]->production_rule != LEFT_PAREN)
-                    error("Expected a left parenthesis");
+                    error("Expected a left parenthesis", search_for_line_number(t));
                 if (fn_params->kids[fn_params->nkids - 1]->production_rule != RIGHT_PAREN)
-                    error("Expected a right parenthesis");
+                    error("Expected a right parenthesis", search_for_line_number(t));
 
                 // Now we can start parsing the parameters
                 fn_params = fn_params->kids[1];
-                printf("Function parameters\n");
                 params = parseParams(fn_params);
 
 
@@ -340,21 +335,21 @@ void function_declaration (struct tree *t)
                                 fn_type = VOID;
                             } else {
                                 // This is a complex type
-                                error("Complex types are not allowed in Irony");
+                                error("Complex types are not allowed in Irony", search_for_line_number(t));
                             }
                             break;
                         case TY_CLOSURE_R:
                             // This is a closure type
-                            error("Closures are not allowed in Irony");
+                            error("Closures are not allowed in Irony", search_for_line_number(t));
                             break;
                         case TY_PRIM_R:
                             // This is a primitive type
                             // TODO: Fix this for array support
-                            error("Primitive types are not allowed in Irony");
+                            error("Primitive types are not allowed in Irony", search_for_line_number(t));
                             break;
                         case IDENTIFIER:
                             // This is a simple type
-                            fn_type = getTypeFromIdentifier(kid->leaf->text);
+                            fn_type = getTypeFromIdentifier(kid->leaf->text, kid->leaf->lineno);
                             break;
                         default:
                             break;
@@ -365,9 +360,8 @@ void function_declaration (struct tree *t)
                 break;
             case INNER_ATTRS_AND_BLOCK_R:
                 // This is the function body
-                printf("Function body\n");
                 if (fn_name == NULL) {
-                    error("Function name not found");
+                    error("Function name not found", search_for_line_number(t));
                 }
                 fn = create_symbol(fn_symbol, fn_decl_t, fn_type, fn_name);
 
@@ -375,27 +369,22 @@ void function_declaration (struct tree *t)
                 scope_enter(); //(Will be done for FUNCTION in create_symbol)
                 // Add the parameters to the symbol table
                 int j = 0;
-                printf("Adding params\n");  
                 if(params != NULL){
                     while(params[j] != NULL){
                         insert_symbol(params[j]);
                         j++;
                     }
                 }
-                printf("Params added\n");
                 build_symbol_tables(t->kids[i]);
-                printf("Function body done\n");
                 fn->fn_table = scope_exit();
                 break;
             default:
                 break;
         }
     }
-    printf("Function Declaration done.\n");
-    fprintf(stderr, "Function %s type %d", fn_name, fn_type);
 }
 
-type_t getTypeFromIdentifier (char *ident)
+type_t getTypeFromIdentifier (char *ident, int l)
 {
     // Static types are considered identifiers by the parser
     // This function should return the type of the identifier
@@ -407,26 +396,23 @@ type_t getTypeFromIdentifier (char *ident)
                       "f32", "f64",
                       "bool", "char", "String"};
     int i = 0;
-    fprintf(stderr,"Get type from identifier: %s\n", ident);
     if(ident == NULL){
-        error("NULL IDENTIFIER\n");
+        error("NULL IDENTIFIER\n", l);
         return UNKNOWN_TYPE;
     }
-    printf("%d\n", (int)(sizeof(types)/sizeof(types[0])));
     while (i < (int)(sizeof(types)/sizeof(types[0])))
     {
         if(strcmp(ident, types[i]) == 0)
             break;
         i++;
     }
-    printf("b\n");
     switch (i)
     {
     case 0:
-        error("i8 is not allowed in Irony");
+        error("i8 is not allowed in Irony", l);
         break;
     case 1:
-        error("i16 is not allowed in Irony");
+        error("i16 is not allowed in Irony", l);
         break;
     case 2:
         // This is the default type for integers
@@ -436,20 +422,20 @@ type_t getTypeFromIdentifier (char *ident)
     case 3:
         return INT_64;
     case 4:
-        error("i128 is not allowed in Irony");
+        error("i128 is not allowed in Irony", l);
         break;
     case 5:
-        error("u8 is not allowed in Irony");
+        error("u8 is not allowed in Irony", l);
         break;
     case 6:
-        error("u16 is not allowed in Irony");
+        error("u16 is not allowed in Irony", l);
         break;
     case 7:
         return U_INT_64;
     case 8:
         return U_INT_64;
     case 9:
-        error("u128 is not allowed in Irony");
+        error("u128 is not allowed in Irony", l);
         break;
     case 10:
         // Convert floats to doubles
@@ -487,7 +473,7 @@ void recursiveParseParams(SymbolTableEntry *params, struct tree *t, int len)
                     recursiveParseParams(params, kid, len);
                     break;
                 default:
-                    error("Unexpected production rule in parameter list");
+                    error("Unexpected production rule in parameter list", search_for_line_number(t));
                     break;
                 }
             }
@@ -500,21 +486,21 @@ void recursiveParseParams(SymbolTableEntry *params, struct tree *t, int len)
         struct tree *param_type = t->kids[2];
 
         if(param_ident == NULL || param_type == NULL)
-            error("NULL argument in parameter list where argument is expected");
+            error("NULL argument in parameter list where argument is expected", search_for_line_number(t));
 
         if(!(param_ident->production_rule == IDENTIFIER))
-            error("Expected an identifier in parameter list");
+            error("Expected an identifier in parameter list", search_for_line_number(t));
         if(!(param_type->production_rule == IDENTIFIER))
-            error("Expected a type in parameter list");
+            error("Expected a type in parameter list", search_for_line_number(t));
 
         if(param_ident->leaf == NULL || param_type->leaf == NULL)
-            error("NULL argument in parameter list where argument is expected");
+            error("NULL argument in parameter list where argument is expected", search_for_line_number(t));
         
         char *param_name = param_ident->leaf->text;
-        type_t param_t = getTypeFromIdentifier(param_type->leaf->text);
+        type_t param_t = getTypeFromIdentifier(param_type->leaf->text, param_type->leaf->lineno);
         if (param_t == UNKNOWN_TYPE)
         {
-            error("Unknown type in parameter list");
+            error("Unknown type in parameter list", param_type->leaf->lineno);
         }
         
 
@@ -527,7 +513,7 @@ void recursiveParseParams(SymbolTableEntry *params, struct tree *t, int len)
         }
         break;
     default:
-        error("Unexpected production rule in parameter list");
+        error("Unexpected production rule in parameter list", search_for_line_number(t));
         break;
     }
 }
@@ -536,7 +522,6 @@ SymbolTableEntry *parseParams(struct tree *t)
 {
     if(t == NULL)
         return NULL;
-    printf("ParseParams called.\t %s [%d] \n", t->symbolname, t->production_rule);
     // This function should parse the parameter list and return an array of SymbolTableEntry
     // The array should be NULL terminated
     int param_count = 0;
@@ -570,7 +555,7 @@ void recursive_pats_or(struct tree *t)
         case PAT_R:
             // This is a single pat
             // TODO: Fix this if we want arrays
-            error("Pattern matching is not implemented in Irony");
+            error("Pattern matching is not implemented in Irony", search_for_line_number(t));
             break;
         case PIPE:
             // This is a pipe separating pats_or
@@ -579,10 +564,10 @@ void recursive_pats_or(struct tree *t)
             // This is a wildcard pattern
             break;
         case IDENTIFIER:
-            if (getTypeFromIdentifier(kid->leaf->text) != UNKNOWN_TYPE)
+            if (getTypeFromIdentifier(kid->leaf->text, kid->leaf->lineno) != UNKNOWN_TYPE)
                 break;
             if (scope_lookup(kid->leaf->text) == NULL)
-                error("Identifier not found in symbol table");
+                error("Identifier not found in symbol table", kid->leaf->lineno);
             break;
         }
     }
@@ -611,10 +596,10 @@ void recursive_match_clauses(struct tree *t){
         // Order goes maybe_outer_attrs pats_or maybe_guard => [block_expr_dot or nonblock_expr]
         // The first kid is either a block_match_clause or a nonblock_match_clause, the second is a COMMA
         if (t->kids[0] != NULL)
-            printf("Outer attrs are not in the irony language. They will be simply ignored for now.");
+            fprintf(stderr, "Outer attrs are not in the irony language. They will be simply ignored for now.");
         struct tree *pats_or = t->kids[1];
         if (pats_or == NULL)
-            error("Expected a pattern in match clause");
+            error("Expected a pattern in match clause", search_for_line_number(t));
         recursive_pats_or(pats_or);
 
         struct tree *maybe_guard = t->kids[2];
@@ -625,9 +610,9 @@ void recursive_match_clauses(struct tree *t){
         if (block == NULL)
             break;
         if (block->production_rule == BLOCK_EXPR_DOT_R) {
-            error("Dot expressions are not allowed in Irony");
+            error("Dot expressions are not allowed in Irony", search_for_line_number(t));
         } else if (block->production_rule == BLOCK_EXPR_R) {
-            error("Block expressions are not allowed in Irony");
+            error("Block expressions are not allowed in Irony", search_for_line_number(t));
         } else if (block->production_rule == BLOCK_R) {
             // Middle is a list of statements
             scope_enter();
@@ -652,7 +637,7 @@ void block_expr (struct tree *t)
     switch (t->production_rule)
     {
     case BLOCK_EXPR_R:
-        error("BLOCK_EXPR_R rules should not be in irony.");
+        error("BLOCK_EXPR_R rules should not be in irony.", search_for_line_number(t));
         break;
     case EXPR_MATCH_R:
         // This is like a switch statement. I dont wanna cut off support for these yet.
@@ -670,7 +655,7 @@ void block_expr (struct tree *t)
         // For type checking, we will need to ensure that the expr_nostruct is of the same type as the match arms
 
         // Shoot, I see the difficulty of this. I guess it would be better use of my time to cut my losses and give up on this
-        error("Match expressions are not implemented in Irony");
+        error("Match expressions are not implemented in Irony", search_for_line_number(t));
         break;
 
     case EXPR_IF_R:
@@ -678,10 +663,8 @@ void block_expr (struct tree *t)
         // IF expr_nostruct block ELSE block_or_if
 
         type_t if_type = expr_typechecker(t->kids[1]);
-        fprintf(stderr, "If kid: %s\n", t->kids[1]->symbolname);
-        fprintf(stderr, "If type: %d\n", if_type);
         if(if_type != BOOL)
-            error("Expected a boolean expression in if statement");
+            error("Expected a boolean expression in if statement", search_for_line_number(t));
         scope_enter();
         build_symbol_tables(t->kids[2]);
         scope_exit();
@@ -701,7 +684,7 @@ void block_expr (struct tree *t)
         // IF LET pat '=' expr_nostruct block
         // IF LET pat '=' expr_nostruct block ELSE block_or_if
 
-        error("If let statements are not implemented in Irony. They just dont seem practical, sorry.");
+        error("If let statements are not implemented in Irony. They just dont seem practical, sorry.", search_for_line_number(t));
         // // build a tree just of the LET section
         // struct tree *if_let_stmt = treealloc(LET_R, 
         //                             "if_let",
@@ -735,11 +718,11 @@ void block_expr (struct tree *t)
     case EXPR_WHILE_R:
         // maybe_label WHILE expr_nostruct block
         if (t->kids[0] != NULL) {
-            error("Labeled loops are not supported by Irony");
+            error("Labeled loops are not supported by Irony", search_for_line_number(t));
         }
         type_t while_type = expr_typechecker(t->kids[2]);
         if(while_type != BOOL)
-            error("Expected a boolean expression in while statement");
+            error("Expected a boolean expression in while statement", search_for_line_number(t));
         scope_enter();
         build_symbol_tables(t->kids[3]);
         scope_exit();
@@ -748,7 +731,7 @@ void block_expr (struct tree *t)
     case EXPR_WHILE_LET_R:
         // maybe_label WHILE LET pat '=' expr_nostruct block
         if (t->kids[0] != NULL) {
-            error("Labeled loops are not supported by Irony");
+            error("Labeled loops are not supported by Irony", search_for_line_number(t));
         }
         // build a tree just of the LET section
         struct tree *while_let_stmt = treealloc(LET_R, 
@@ -762,28 +745,28 @@ void block_expr (struct tree *t)
         type_t while_let_type = let_declaration(while_let_stmt);
         free(while_let_stmt); // Dont free sub-tokens. Just the tree itself.
         if (while_let_type != BOOL)
-            error("Expected a boolean expression in while statement");
+            error("Expected a boolean expression in while statement", search_for_line_number(t));
         scope_enter();
         build_symbol_tables(t->kids[6]);
         scope_exit();
         break;
 
     case EXPR_LOOP_R:
-        error("Loop statements are not implemented in Irony, use a While statement instead.");
+        error("Loop statements are not implemented in Irony, use a While statement instead.", search_for_line_number(t));
         break;
     case EXPR_FOR_R:
         // maybe_label FOR pat IN expr_nostruct block
         if (t->kids[0] != NULL)
-            error("Labeled For-loops are not supported by Irony");
+            error("Labeled For-loops are not supported by Irony", search_for_line_number(t));
 
         char *for_name = NULL;
         if (t->kids[2] != NULL && t->kids[2]->production_rule != IDENTIFIER)
-            error("Expected an identifier in for loop");
+            error("Expected an identifier in for loop", search_for_line_number(t));
         for_name = t->kids[2]->leaf->text;
 
         type_t for_type = expr_typechecker(t->kids[4]);
         if(for_type != UNKNOWN_TYPE)
-            error("Expected an iterator in for loop");
+            error("Expected an iterator in for loop", search_for_line_number(t));
         scope_enter();
         insert_symbol(create_symbol(LOCAL, IMPLICIT, for_type, for_name));
         build_symbol_tables(t->kids[5]);
@@ -806,7 +789,7 @@ type_t const_declaration (struct tree *t)
     SymbolTableEntry const_sym = NULL;
 
     if(t->kids[1] == NULL)
-        error("Expected an identifier in const declaration");
+        error("Expected an identifier in const declaration", search_for_line_number(t));
     const_name = t->kids[1]->leaf->text;
 
     struct tree *ty_tree = t->kids[3];
@@ -814,30 +797,30 @@ type_t const_declaration (struct tree *t)
         case TY_R:
             // This is a complex type
             if (ty_tree->kids[0] != NULL && ty_tree->kids[0]->production_rule == LEFT_PAREN){
-                error("Tuples are not allowed in Irony");
+                error("Tuples are not allowed in Irony", search_for_line_number(t));
             }
-            error("Complex types are not allowed in Irony");
+            error("Complex types are not allowed in Irony", search_for_line_number(t));
             break;
         case TY_CLOSURE_R:
             // This is a closure type
-            error("Closures are not allowed in Irony");
+            error("Closures are not allowed in Irony", search_for_line_number(t));
             break;
         case TY_PRIM_R:
             // This is a primitive type
             // TODO: Fix this for array compatibility
-            error("Primitive types are not allowed in Irony");
+            error("Primitive types are not allowed in Irony", search_for_line_number(t));
             break;
         case IDENTIFIER:
             // This is a simple type
-            const_type = getTypeFromIdentifier(ty_tree->leaf->text);
+            const_type = getTypeFromIdentifier(ty_tree->leaf->text, ty_tree->leaf->lineno);
             break;
     }
     type_t expr_type = expr_typechecker(t->kids[5]);
     if (expr_type != const_type) {
         if(expr_type == DOUBLE && const_type == INT_64)
-            error("Declared as an integer, but the expression is a float");
+            error("Declared as an integer, but the expression is a float", search_for_line_number(t));
         else if (!(expr_type == INT_64 && const_type == DOUBLE))
-            error("Type mismatch in const declaration");
+            error("Type mismatch in const declaration", search_for_line_number(t));
     }
     const_sym = create_symbol(const_symbol, const_decl, const_type, const_name);
     insert_global_symbol(const_sym);
@@ -846,7 +829,6 @@ type_t const_declaration (struct tree *t)
 
 type_t let_declaration (struct tree *t)
 {
-    printf("Let Declaration called.\t %s [%d] \n", t->symbolname, t->production_rule);
     // This function should parse the let declaration and add the symbols to the symbol table
     char *var_name = NULL;
     symbol_t var_symbol = getCurrentSymbolType();
@@ -859,16 +841,16 @@ type_t let_declaration (struct tree *t)
 
     // LET_R is formulated: LET pat maybe_ty_acription maybe_init_expr ';'
     if (t->production_rule != LET_R)
-        error("Expected a let declaration");
+        error("Expected a let declaration", search_for_line_number(t));
     
     if (t->nkids != 5)
-        error("Incorrect number of kids in let declaration");
+        error("Incorrect number of kids in let declaration", search_for_line_number(t));
     if (t->kids[0]->production_rule != LET)
-        error("Expected a let keyword");
+        error("Expected a let keyword", search_for_line_number(t));
 
     struct tree *pat = t->kids[1];
     if(pat == NULL)
-        error("Expected a pattern in let declaration");
+        error("Expected a pattern in let declaration", search_for_line_number(t));
     switch (pat->production_rule)
     {
         case UNDERSCORE:
@@ -883,7 +865,7 @@ type_t let_declaration (struct tree *t)
             case PATH_EXPR_R:
             case PATH_GENERIC_ARGS_WITH_COLONS_R:
             
-            error("Path expressions are not in the irony language.");
+            error("Path expressions are not in the irony language.", search_for_line_number(t));
             break;
             
             case LIT_BYTE:
@@ -898,7 +880,7 @@ type_t let_declaration (struct tree *t)
             case LIT_BYTE_STR_RAW:
             // These are literals
             
-            error("Kinda confused on let declaration with literals as match pattern. This is not in the irony language unless told otherwise.");
+            error("Kinda confused on let declaration with literals as match pattern. This is not in the irony language unless told otherwise.", search_for_line_number(t));
             break;
         case PAT_R:
             // This is a complex pattern
@@ -907,17 +889,17 @@ type_t let_declaration (struct tree *t)
             {
                 case AMPERSAND:
                     // This is a reference pattern
-                    error("Reference patterns are not allowed in Irony");
+                    error("Reference patterns are not allowed in Irony", search_for_line_number(t));
                     break;
                 case DOUBLE_AMPERSAND:
-                    error("Double ampersand let statements are not allowed in Irony");
+                    error("Double ampersand let statements are not allowed in Irony", search_for_line_number(t));
                     break;
 
                 case LIT_OR_PATH_R:
                     case PATH_EXPR_R:
                     case PATH_GENERIC_ARGS_WITH_COLONS_R:
                     
-                    error("Path expressions are not in the irony language.");
+                    error("Path expressions are not in the irony language.", search_for_line_number(t));
                     break;
                     
                     case LIT_BYTE:
@@ -932,13 +914,13 @@ type_t let_declaration (struct tree *t)
                     case LIT_BYTE_STR_RAW:
                     // These are literals
                     
-                    error("Kinda confused on let declaration with literals as match pattern. This is not in the irony language unless told otherwise.");
+                    error("Kinda confused on let declaration with literals as match pattern. This is not in the irony language unless told otherwise.", search_for_line_number(t));
                     break;
                 
                 case BINDING_MODE_R:
                     // This is a binding mode pattern
                     case REF:
-                    error("Reference patterns are not allowed in Irony");
+                    error("Reference patterns are not allowed in Irony", search_for_line_number(t));
                     break;
                 case MUT:
                     is_mutable = 1;
@@ -948,26 +930,26 @@ type_t let_declaration (struct tree *t)
                         var_name = pat->kids[1]->leaf->text;
                     } else {
                         // MUT ident AT pat
-                        error("AT patterns are not allowed in Irony");
+                        error("AT patterns are not allowed in Irony", search_for_line_number(t));
                     }
                     break;
                 case IDENTIFIER:
                     // This is ident AT pat
-                    error("AT patterns are not allowed in Irony");
+                    error("AT patterns are not allowed in Irony", search_for_line_number(t));
                     break;
                 case BOX:
-                    error("Boxes are not allowed in Irony");
+                    error("Boxes are not allowed in Irony", search_for_line_number(t));
                     break;
                 case LESS_THAN:
                 case DOUBLE_LESS_THAN:
                     // using let <> = ... or let <<>> = ...
-                    error("Generic patterns are not allowed in Irony");
+                    error("Generic patterns are not allowed in Irony", search_for_line_number(t));
                     break;
                 
                 case LEFT_PAREN:
                 case LEFT_BRACKET:
                     // This something idk because tuple and array patterns are handled later in the MAYBE_TY_ASCRIPTION_R
-                    error("Tuple and array patterns are not allowed in Irony");
+                    error("Tuple and array patterns are not allowed in Irony", search_for_line_number(t));
                 default:
                     break;
             }
@@ -976,7 +958,6 @@ type_t let_declaration (struct tree *t)
             break;
     }
 
-    printf("Variable name: %s\n", var_name);
     struct tree *ty_tree = t->kids[2];
     if(ty_tree != NULL){
         var_decl = EXPLICIT;
@@ -987,7 +968,7 @@ type_t let_declaration (struct tree *t)
             // ty or lifetime
             case TY_SUM_R:
                 // This is a type sum
-                error("Type sums are not allowed in Irony");
+                error("Type sums are not allowed in Irony", search_for_line_number(t));
                 break;
             case TY_R:
                 if (ty_tree->kids[1]->nkids == 2) {
@@ -995,21 +976,21 @@ type_t let_declaration (struct tree *t)
                     var_type = VOID;
                 } else {
                     // This is a complex type
-                    error("Complex types are not allowed in Irony");
+                    error("Complex types are not allowed in Irony", search_for_line_number(t));
                 }
                 break;
             case TY_CLOSURE_R:
                 // This is a closure type
-                error("Closures are not allowed in Irony");
+                error("Closures are not allowed in Irony", search_for_line_number(t));
                 break;
             case PATH_GENERIC_ARGS_WITHOUT_COLONS_R:
                 // This is a path generic args without colons
-                error("Paths are not allowed in Irony");
+                error("Paths are not allowed in Irony", search_for_line_number(t));
                 break;
             case TY_PRIM_R:
                 // This is a primitive type
                 // TODO: this
-                error("Primitive types are not allowed in Irony");
+                error("Primitive types are not allowed in Irony", search_for_line_number(t));
                 break;
             case UNDERSCORE:
                 // This is a wildcard type
@@ -1017,49 +998,41 @@ type_t let_declaration (struct tree *t)
                 break;
             case TY_BARE_FN_R:
                 // This is a bare function type
-                error("Bare function types are not allowed in Irony... And I cant even find much documentation about them in general. Does anyone even use these? I guess you do if you triggered this error.");
+                error("Bare function types are not allowed in Irony... And I cant even find much documentation about them in general. Does anyone even use these? I guess you do if you triggered this error.", search_for_line_number(t));
                 break;
             case FOR_IN_TYPE_R:
                 // This is a for in type
-                error("For in types are not allowed in Irony");
+                error("For in types are not allowed in Irony", search_for_line_number(t));
                 break;
             case IDENTIFIER:
                 // This is a simple type
-                var_type = getTypeFromIdentifier(ty_tree->kids[1]->leaf->text);
+                var_type = getTypeFromIdentifier(ty_tree->kids[1]->leaf->text, ty_tree->kids[1]->leaf->lineno);
                 break;
             default:
                 break;
         }
     }
 
-    printf("Variable type: %d\n", var_type);
     struct tree *init_expr = t->kids[3];
     if (init_expr != NULL) {
-        printf("Init expr: %s\n", init_expr->symbolname);
         // This is an initialization expression
         // format is '=' expr
-        printf("a\n");
         struct tree *expr = init_expr->kids[1];
         if (expr == NULL)
-            error("Expected an expression in let declaration");
-        printf("b\n");
+            error("Expected an expression in let declaration", search_for_line_number(t));
         // If it has 3 kids and uses the keyword AS, it is a cast expression, which is not allowed in Irony
         if(expr->nkids == 3 && (expr->kids[1] != NULL && expr->kids[1]->production_rule == AS)){
-            error("Cast expressions are not allowed in Irony");
+            error("Cast expressions are not allowed in Irony", search_for_line_number(t));
         }
-        printf("c\n");
         // If the first child is BOX, it is a box expression, which is not allowed in Irony
         if(expr->kids[0] != NULL && expr->kids[0]->production_rule == BOX){
-            error("Box expressions are not allowed in Irony");
+            error("Box expressions are not allowed in Irony", search_for_line_number(t));
         }
-        printf("d\n");
         // Recurse into this.
-        printf("Building symbol tables for init_expr\n");
         build_symbol_tables(expr);
     }
-    printf("e\n");
     if(var_name == NULL)
-        error("Variable name not found");
+        error("Variable name not found", search_for_line_number(t));
     var = create_symbol(var_symbol, var_decl, var_type, var_name);
     var->is_mutable = is_mutable;
     insert_symbol(var);
@@ -1084,24 +1057,24 @@ void recursive_parse_token_trees(struct tree *t, int index, List params){
                 case BRACES_DELIMITED_TOKEN_TREES_R:
                 case BRACKETS_DELIMITED_TOKEN_TREES_R:
 
-            error("Delimited token trees are not allowed in Irony");
+            error("Delimited token trees are not allowed in Irony", search_for_line_number(t));
             break;
         case IDENTIFIER:
-            if (getTypeFromIdentifier(t->leaf->text) != UNKNOWN_TYPE) // This is a static type
+            if (getTypeFromIdentifier(t->leaf->text, t->leaf->lineno) != UNKNOWN_TYPE) // This is a static type
                 break;
             SymbolTableEntry id = scope_lookup(t->leaf->text);
             if (id == NULL)
-                error("Identifier not found in symbol table");
+                error("Identifier not found in symbol table", search_for_line_number(t));
             param = ll_get(params, index);
             if(param == NULL)
-                error("Parameter not found in list");
+                error("Parameter not found in list", search_for_line_number(t));
             if(param->type_t != id->type_t)
                 // If one type is float and the other is int, it can pass
                 if (param->type_t == INT_64 && id->type_t == DOUBLE)
                     break;
                 if (param->type_t == DOUBLE && id->type_t == INT_64)
                     break;
-                error("Type does not match expected parameter type");
+                error("Type does not match expected parameter type", search_for_line_number(t));
             break;
 
         case LIT_BYTE:
@@ -1118,9 +1091,9 @@ void recursive_parse_token_trees(struct tree *t, int index, List params){
             type_t type = get_type_from_literal(t);
             param = ll_get(params, index);
             if(param == NULL)
-                error("Parameter not found in list");
+                error("Parameter not found in list", search_for_line_number(t));
             if(param->type_t != type)
-                error("Type does not match expected parameter type");
+                error("Type does not match expected parameter type", search_for_line_number(t));
             break;
     }
 }
@@ -1139,20 +1112,20 @@ type_t expr_typechecker(struct tree *t)
         if (t->kids[0]->production_rule == NONBLOCK_PREFIX_EXPR_NOSTRUCT_R || t->kids[0]->production_rule == NONBLOCK_PREFIX_EXPR_R){
             // if length is 1 it is a lamda expression. Not allowed in Irony
             if(t->nkids == 1 || t->kids[0]->production_rule == MOVE){
-                error("Lambda expressions are not allowed in Irony");
+                error("Lambda expressions are not allowed in Irony", search_for_line_number(t));
             }
 
             if (t->kids[0] != NULL)
                 switch (t->kids[0]->production_rule)
                 {
                 case YIELD:
-                    error("Yield expressions are not allowed in Irony");
+                    error("Yield expressions are not allowed in Irony", search_for_line_number(t));
                     break;
                 case SELF:
-                    error("Self expressions are not allowed in Irony");
+                    error("Self expressions are not allowed in Irony", search_for_line_number(t));
                     break;
                 case SUPER:
-                    error("Super expressions are not allowed in Irony");
+                    error("Super expressions are not allowed in Irony", search_for_line_number(t));
                     break;
                 default:
                     break;
@@ -1164,7 +1137,7 @@ type_t expr_typechecker(struct tree *t)
             // Last two possibilities start with '&' and '&&'
             if(t->kids[0]->production_rule == AMPERSAND || t->kids[0]->production_rule == DOUBLE_AMPERSAND){
                 // This is a reference expression
-                error("Reference expressions are not allowed in Irony");
+                error("Reference expressions are not allowed in Irony", search_for_line_number(t));
             }
             break;
         }
@@ -1172,7 +1145,7 @@ type_t expr_typechecker(struct tree *t)
         if (t->nkids == 2){
             if (t->kids[0] != NULL && t->kids[0]->production_rule == BOX){
                 // This is a box expression
-                error("Box expressions are not allowed in Irony");
+                error("Box expressions are not allowed in Irony", search_for_line_number(t));
             }
             // Eh this doesnt need to be type checked I dont think
             return_type = UNKNOWN_TYPE;
@@ -1187,14 +1160,13 @@ type_t expr_typechecker(struct tree *t)
             if (t->kids[0] != NULL && t->kids[0]->production_rule == LEFT_BRACKET) {
                 // This is an array expression
                 // TODO: Add support for arrays
-                error("Array expressions are not allowed in Irony... For now. I will add them soon I hope. I am kinda rushing to get this project done rn");
+                error("Array expressions are not allowed in Irony... For now. I will add them soon I hope. I am kinda rushing to get this project done rn", search_for_line_number(t));
             }
             type_t left;
             type_t right;
             switch (t->kids[1]->production_rule){
                 case DOT:
-                    fprintf(stderr, "Dot expression: %s\n", t->kids[0]->symbolname);
-                    error("Dot expressions are not allowed in Irony");
+                    error("Dot expressions are not allowed in Irony", search_for_line_number(t));
                     break;
                 case DOUBLE_PIPE:
                 case DOUBLE_AMPERSAND:
@@ -1245,21 +1217,21 @@ type_t expr_typechecker(struct tree *t)
                             return_type = right;
                         if (left == DOUBLE && right == INT_64)
                             return_type = left;
-                        error("Type mismatch in expression");
+                        error("Type mismatch in expression", search_for_line_number(t));
                     }
                     return_type = left;
                     break;
                 case AS:
                     // This is a cast expression
-                    error("Cast expressions are not allowed in Irony");
+                    error("Cast expressions are not allowed in Irony", search_for_line_number(t));
                     break;
                 case COLON:
                     // This is a type ascription
-                    error("Type ascriptions are not allowed in Irony");
+                    error("Type ascriptions are not allowed in Irony", search_for_line_number(t));
                     break;
                 case DOUBLE_DOT:
                     // This is a range expression
-                    error("Range expressions are not allowed in Irony");
+                    error("Range expressions are not allowed in Irony", search_for_line_number(t));
                     break;
                 default:
                     break;
@@ -1275,18 +1247,17 @@ type_t expr_typechecker(struct tree *t)
                     // First kid is function name.
                     // 3rd is the maybe_exprs.
                     if(t->kids[0] == NULL || t->kids[0]->leaf == NULL)
-                        error("Expected a function name in function call");
+                        error("Expected a function name in function call", search_for_line_number(t));
                     SymbolTableEntry search = scope_lookup(t->kids[0]->leaf->text);
                     if (search == NULL)
-                        error("Function not found in symbol table");
+                        error("Function not found in symbol table", t->kids[0]->leaf->lineno);
                     if (search->symbol_t != FUNCTION)
-                        error("Expected a function in function call");
+                        error("Expected a function in function call", t->kids[0]->leaf->lineno);
                     return_type = search->type_t;
                     break;
 
                 case DEFAULT:
-                    error("This is a 4 kid expression. I dont know what to do with this");
-                    error("No.");
+                    error("This is a 4 kid expression. I dont know what to do with this", search_for_line_number(t));
             }
             
         }
@@ -1308,20 +1279,20 @@ type_t expr_typechecker(struct tree *t)
             break;
         case PATH_EXPR_R:
             case PATH_GENERIC_ARGS_WITH_COLONS_R:
-            error("Path expressions are not allowed in Irony");
+            error("Path expressions are not allowed in Irony", search_for_line_number(t));
             break;
         case MACRO_EXPR_R:
             return expr_typechecker(t->kids[0]);
         case EXPR_QUALIFIED_PATH_R:
-            error("Qualified path expressions are not allowed in Irony");
+            error("Qualified path expressions are not allowed in Irony", search_for_line_number(t));
             break;
         
         case BLOCK_EXPR_R:
             if (t->kids[0]->production_rule == UNSAFE){
-                error("Unsafe blocks are not allowed in Irony");
+                error("Unsafe blocks are not allowed in Irony", search_for_line_number(t));
             }
             if (t->kids[1]->production_rule == BANG){
-                error("Path expression blocks are not allowed in Irony");
+                error("Path expression blocks are not allowed in Irony", search_for_line_number(t));
             }
             // fall through
         case EXPR_MATCH_R:
@@ -1359,25 +1330,25 @@ type_t expr_typechecker(struct tree *t)
             // Look it up and make sure it exists in the symbol table
             search = scope_lookup(t->kids[0]->leaf->text);
             if (search == NULL)
-                error("Macro expression identifier not found in symbol table.");
+                error("Macro expression identifier not found in symbol table.", search_for_line_number(t));
         } else if(t->kids[0]->production_rule == PATH_EXPR_R){
             // This is a path expression
-            error("Path expressions are not allowed in Irony");
+            error("Path expressions are not allowed in Irony", search_for_line_number(t));
         } else {
-            error("Unexpected production rule in macro expression");
+            error("Unexpected production rule in macro expression", search_for_line_number(t));
         }
         if (t->kids[2] != NULL) {
             // This is a maybe_ident. Idk what to do with this
-            error("Ident after a '!' in a macro expression is not allowed in Irony");
+            error("Ident after a '!' in a macro expression is not allowed in Irony", search_for_line_number(t));
         }
         if (t->kids[3] == NULL) {
             // This is a list of tokens
-            error("Expected a list of tokens in macro expression");
+            error("Expected a list of tokens in macro expression", search_for_line_number(t));
         }
         switch (t->kids[3]->production_rule)
         {
         case BRACKETS_DELIMITED_TOKEN_TREES_R:
-            error("Macro expressions with bracket surrounded token trees are not allowed in Irony");
+            error("Macro expressions with bracket surrounded token trees are not allowed in Irony", search_for_line_number(t));
             break;
         case PARENS_DELIMITED_TOKEN_TREES_R:
             // Expected case. Handled outside the brackets
@@ -1391,12 +1362,12 @@ type_t expr_typechecker(struct tree *t)
         if (tokens != NULL){
             SymbolTable fn_table = search->fn_table;
             if(fn_table == NULL)
-                error("Function table not found in symbol table entry");
+                error("Function table not found in symbol table entry", search_for_line_number(t));
 
             // Check the params
             List params = fn_table->params;
             if(params == NULL)
-                error("Params list not found in function table");
+                error("Params list not found in function table", search_for_line_number(t));
             struct tree *tmp = tokens;
             recursive_parse_token_trees(tmp, 0, params);
         }
@@ -1416,7 +1387,7 @@ type_t expr_typechecker(struct tree *t)
 
 type_t get_type_from_literal(struct tree *t){
     if (t == NULL)
-        error("NULL tree in get_type_from_literal");
+        error("NULL tree in get_type_from_literal", -1);
     
     switch (t->production_rule) {
         case LIT_BYTE:
@@ -1440,7 +1411,7 @@ type_t get_type_from_literal(struct tree *t){
         case LIT_BYTE_STR_RAW:
             return STRING;
         default:
-            error("Unexpected production rule in get_type_from_literal");
+            error("Unexpected production rule in get_type_from_literal", search_for_line_number(t));
             return UNKNOWN_TYPE;
     }
 }

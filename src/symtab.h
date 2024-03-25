@@ -34,6 +34,7 @@ struct sym_entry {
     int ordinance; // Ordinance of the symbol in the table
     SymbolTable fn_table; // Symbol table for the function (if the symbol is a function)
     int is_mutable;
+    int line_no;
 };
 // *SymbolTableEntry;
 

@@ -18,6 +18,6 @@
 // Function declarations
 void build_symbol_tables(struct tree *t);
 
-type_t getTypeFromIdentifier(char *ident);
+type_t getTypeFromIdentifier(char *ident, int l);
 
 #endif // SEMANTIC_ANALYZER_H

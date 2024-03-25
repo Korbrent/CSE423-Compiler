@@ -51,7 +51,7 @@ struct tree *treealloc(int production_rule, char *symbolname, int nkids, ...) {
         va_end(kids);
     } else {
         // Leaf nodes are handled by the lexer
-        printf("Error in treealloc: nkids is 0. Leaf nodes should be handled elsewhere.\n");
+        fprintf(stderr, "Error in treealloc: nkids is 0. Leaf nodes should be handled elsewhere.\n");
     }
     return t;
 }

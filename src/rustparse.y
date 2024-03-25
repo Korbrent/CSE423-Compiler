@@ -32,8 +32,9 @@
 // #define YYSTYPE struct node *
 extern int yylex();
 extern void yyerror(char const *s);
-void __yyerror(char const *s, int yystate);
-#define yyerror(s) __yyerror(s, yystate)
+void __yyerror(char *s, int errorCode, int lineno, int returnType);
+int getLineNo();
+#define yyerror(s) __yyerror(s, yystate, getLineNo(), 2)
 
 %}
 %debug
