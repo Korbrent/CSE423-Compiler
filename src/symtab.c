@@ -103,6 +103,7 @@ SymbolTableEntry create_symbol
     //     // new_symbol->fn_table = stack;
     // }
     new_symbol->is_mutable = 0;
+    new_symbol->array_size = -1;
     new_symbol->line_no = -1;
     return new_symbol;
 }
@@ -305,7 +306,7 @@ void print_table_recursive(SymbolTable symtab, int level) {
             for (int j = 0; j < level; j++) {
                 printf("  ");
             }
-            printf("%s [%s]\n", item->key, type_to_str(entry->type_t));
+            printf("%s [%s] isMutable: %s\n", item->key, type_to_str(entry->type_t), entry->is_mutable ? "true" : "false");
             if (entry->fn_table != NULL) {
                 for (int j = 0; j < level - 1; j++){
                     printf("  ");

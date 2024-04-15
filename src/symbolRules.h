@@ -39,7 +39,8 @@ typedef enum {
     CHAR,
     STRING,
     VOID,
-    UNKNOWN_TYPE
+    UNKNOWN_TYPE,
+    ARRAY,
 } type_t;
 
 #endif

@@ -35,6 +35,7 @@ struct sym_entry {
     SymbolTable fn_table; // Symbol table for the function (if the symbol is a function)
     int is_mutable;
     int line_no;
+    int array_size; // -1 if not an array, -2 if array size is unknown, otherwise the size of the array
 };
 // *SymbolTableEntry;
 

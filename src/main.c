@@ -124,6 +124,7 @@ int main(int argc, char *argv[]){
             dotfile = realloc(dotfile, strlen(dotfile) + 1);
             // printf("\nPrinting dotfile to %s\n", dotfile);
             print_graph(getTreeRoot(), dotfile);
+            printf("Dotfile created at %s\n", dotfile);
         }
         
         if (treeFlag != 0) {
