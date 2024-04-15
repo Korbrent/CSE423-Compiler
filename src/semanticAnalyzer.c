@@ -453,7 +453,6 @@ type_t function_declaration (struct tree *t)
 
             break;
         case INNER_ATTRS_AND_BLOCK_R:
-            fprintf(stderr, "Function body started. Expected return type: %d\n", fn_type);
             // This is the function body
             if (fn_name == NULL) {
                 error("Function name not found", search_for_line_number(t));
@@ -470,7 +469,6 @@ type_t function_declaration (struct tree *t)
                     j++;
                 }
             }
-            fprintf(stderr, "Function parameters added\n");
             type_t ret_type = build_symbol_tables(t->kids[i]);
 
             if (array_size != -1) {
@@ -504,13 +502,11 @@ type_t function_declaration (struct tree *t)
             }
             fn->fn_table = scope_exit();
             fn->array_size = array_size;
-            fprintf(stderr, "Function body end. Return value %d\n", ret_type);
             break;
         default:
             break;
         }
     }
-    fprintf(stderr, "Function declaration end\n");
     return fn_type;
 }
 
@@ -1558,10 +1554,14 @@ type_t expr_typechecker(struct tree *t)
                         right = array_typechecker(t->kids[2]);
                         if (left == UNKNOWN_TYPE && right == UNKNOWN_TYPE)
                             return_type = UNKNOWN_TYPE;
-                        if (left == UNKNOWN_TYPE)
+                        if (left == UNKNOWN_TYPE) {
                             return_type = right;
-                        if (right == UNKNOWN_TYPE)
+                            left = right;
+                        }
+                        if (right == UNKNOWN_TYPE) {
                             return_type = left;
+                            right = left;
+                        }
                         if (left != right) {
                             // If one type is float and the other is int, it can pass
                             if ( ((left == INT_64 || left == U_INT_64) && right == DOUBLE)
@@ -1581,9 +1581,11 @@ type_t expr_typechecker(struct tree *t)
                                 right = U_INT_64;
                             }
 
-                            if (left != right)
-                                error("Type mismatch in expression", search_for_line_number(t));
-
+                            if (left != right){
+                                fprintf(stderr, "Left type: %d\n", left);
+                                fprintf(stderr, "Right type: %d\n", right);
+                                error("Type mismatch in expression (a)", search_for_line_number(t));
+                            }
                         }
                     }
                     //fall through
@@ -1606,10 +1608,14 @@ type_t expr_typechecker(struct tree *t)
                     right = expr_typechecker(t->kids[2]);
                     if (left == UNKNOWN_TYPE && right == UNKNOWN_TYPE)
                         return_type = UNKNOWN_TYPE;
-                    if (left == UNKNOWN_TYPE)
+                    if (left == UNKNOWN_TYPE) {
                         return_type = right;
-                    if (right == UNKNOWN_TYPE)
-                        return_type = left;
+                        left = right;
+                    }
+                    if (right == UNKNOWN_TYPE) {
+                        return_type = left; 
+                        right = left;
+                    }
                     if (left != right) {
                         // If one type is float and the other is int, it can pass
                         if ( ((left == INT_64 || left == U_INT_64) && right == DOUBLE)
@@ -1629,8 +1635,11 @@ type_t expr_typechecker(struct tree *t)
                             right = U_INT_64;
                         }
 
-                        if (left != right)
+                        if (left != right){
+                            fprintf(stderr, "Left type: %d\n", left);
+                            fprintf(stderr, "Right type: %d\n", right);
                             error("Type mismatch in expression", search_for_line_number(t));
+                        }
                     }
                     return_type = left;
                     break;
@@ -1883,6 +1892,10 @@ int array_sizechecker(struct tree *t){
     if (t == NULL) {
         return 0;
     }
+    if (t->nkids == 0){
+        // this is a literal or an identifier
+        return 1;
+    }
     switch (t->production_rule)
     {
         case EXPR_R:
@@ -1913,6 +1926,10 @@ int array_sizechecker(struct tree *t){
 type_t array_typechecker(struct tree *t){
     if (t == NULL) {
         return UNKNOWN_TYPE;
+    }
+    if (t->nkids == 0){
+        // this is a literal or an identifier
+        return expr_typechecker(t);
     }
     switch (t->production_rule)
     {
@@ -1956,6 +1973,8 @@ type_t array_typechecker(struct tree *t){
             error("Vector expressions are not allowed in Irony", search_for_line_number(t));
             break;
     }
+    // fprintf(stderr, "Production rule: %d, %s: nkids %d\n", t->production_rule, t->symbolname, t->nkids);
+
     error("Unexpected production rule in array_typechecker", search_for_line_number(t));
     return UNKNOWN_TYPE;
 
