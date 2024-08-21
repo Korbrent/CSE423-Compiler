@@ -1,12 +1,6 @@
 ## Prelude:
 This file is a markdown-formatted file that I am using to document my work in the compiler. I started writing this file during lab 6 as a way to keep track and documentation of the ever-growing arsenal of files that go into programming and compiling my compiler.
 
-### Message to the Professor:
-If you're reading this, then I forgot to specify which files to zip into my archive. 
-
-This code is not publically available on Github (nor is it even in a Git respository at the moment). 
-After the conclusion of this course, I intend on posting this project to my Github page, using this markdown file as a reference for later.
-
 # The Irony Language:
 
 The [Irony language](https://www.cs.nmt.edu/~jeffery/courses/423/ironyref.html) is a language that aims to be a subset of the Rust programming language. 
@@ -22,7 +16,8 @@ The reason I choose to take this approach is three-fold,
 3. Shoot for the moon, even if you miss you'll land among the stars. By aiming for a proper Rust language, if I am unable to meet the specification, I will at least be closer to Irony. 
 
 # The fec compiler
-The fec compiler (pronounced like a word that can only be used once per PG-13 film) is an Irony compiler meant to convert `.rs` files into machine executable code. The name is a play on chemistry as iron carbonate, or an Irony Compiler, hence the FeC chemical symbol. 
+The fec compiler is an Irony compiler meant to convert `.rs` files into machine executable code. The name fec comes from the chemical symbol for iron, Fe. Thus, FeC expands out to "Irony Compiler". Clearly, our class was composed of computer scientists and not chemists. 
+
 ### Sections:
 1. Lexical Analysis (FLEX) - `rustlex.l`, `token.{c,h}`
 
@@ -37,8 +32,11 @@ The second step in compilation. In syntactical analysis, we match our tokens to 
 During semantic analysis, we look through a file to build our symbol table and check variables in scope. At this stage we ensure types are not mismatched. 
 
 4. Intermediate Code Generation
-5. Optimization
-6. Code Generation
+
+For icode generation and final code generation, our class changed from working separately to working in pairs. As a result, I had to abandon this repository to join the progress of my partner. willgarrett610/CSE_4023_Irony_Compiler
+
+6. Optimization
+7. Code Generation
 
 # File Explanation:
 
@@ -61,7 +59,7 @@ During semantic analysis, we look through a file to build our symbol table and c
 `graphicTree.{c,h}`: Used only when the code is ran with the `-dot` argument. Generates a `.dot` file as output, which can be used to generate a PNG representation of our AST.
 
 ### Semantic Analysis
-`semanticAnalyzer.{c,h}`:
+`semanticAnalyzer.{c,h}`: Recursively scans the resulting tree from the parser, performing type checking and building our symbol table.
 
 `semanticRules.h`: Defines the constant values used as rules during semantic analysis.
 
