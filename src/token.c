@@ -44,7 +44,7 @@ struct token *buildToken(int type, char *text, int lineno, char *filename) {
         case CHAR_LITERAL:
             t->ival = char_literal_parser(text);
             if (t->ival == -1){
-                printf("Error: Not a character literal.\n");
+                fprintf(stderr, "Error: Not a character literal.\n");
             }
             break;
     }
@@ -142,7 +142,7 @@ int char_literal_parser(char *input){
     // Check for the opening quote.
     if(input[i] != '\''){
         // This is not a character literal.
-        printf("Error: Not a character literal.\n");
+        fprintf(stderr, "Error: Not a character literal.\n");
         return -1;
     }
     i++; // Skip the opening quote.
@@ -199,7 +199,7 @@ int char_literal_parser(char *input){
     // Check for the closing quote.
     if(input[i] != '\''){
         // This is not a character literal.
-        printf("Error: Not a character literal.\n");
+        fprintf(stderr, "Error: Not a character literal.\n");
         return -1;
     }
 
@@ -211,15 +211,10 @@ int char_literal_parser(char *input){
  * @param t The token to free.
  */
 void tokenfree(struct token *t) {
-    // printf("Freeing token %s\n", t->text);
+    // fprintf(stderr, "Freeing token %s\n", t->text);
     if (t->text != NULL){
         free(t->text);
     }
-    // Don't free the filename, it's a pointer to the command line argument.
-    // if (t->filename != NULL){
-    //     printf("Freeing filename %s\n", t->filename);
-    //     free(t->filename);
-    // }
     if (t->category == STRING_LITERAL){
         free(t->sval);
     }

@@ -11,15 +11,13 @@
 
 #include "tree.h"
 #include "symtab.h"
-#include "semanticRules.h"
+#include "symbolRules.h"
 #include "parserRules.h"
 #include "rustparse.h"
 
 // Function declarations
-void build_symbol_tables(struct tree *t);
+type_t build_symbol_tables(struct tree *t);
 
-void function_declaration(struct tree *t);
-
-type_t getTypeFromIdentifier(char *ident);
+type_t getTypeFromIdentifier(char *ident, int l);
 
 #endif // SEMANTIC_ANALYZER_H

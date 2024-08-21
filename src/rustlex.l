@@ -7,10 +7,11 @@
 #include "token.h"
 #include "rustparse.h"
 #include "tree.h"
+#include "main.h"
 int lineno = 0;
 // extern struct token *yytoken;
 extern void clearFlexBuffer();
-char *filename;
+// char *filename;
 
 extern int getLineNo(){
     return lineno;
@@ -18,7 +19,7 @@ extern int getLineNo(){
 int leafAlloc(int i);
 void string_literal_parser(char *temp, char *output);
 int char_literal_parser(char *input);
-void __yyerror(char *s, int yystate);
+void __yyerror(char *s, int errorCode, int lineno, int returnType);
 %}
 
 %%
@@ -129,7 +130,9 @@ yield                           {   return leafAlloc(YIELD); }
 
 '\\?.'                          {   return leafAlloc(CHAR_LITERAL); }
 \"([^"\n]|(\\\"))*\"            {   return leafAlloc(STRING_LITERAL); }
-\"([^"\n]|(\\\"))*\n            {   __yyerror("Unclosed string", LEXICAL_ERROR); }
+\"([^"\n]|(\\\"))*\n            {   
+    __yyerror("Unclosed string", LEXICAL_ERROR, lineno, 1); }
+
 "-"?[0-9]+                      {   return leafAlloc(INTEGER_LITERAL); }
 "-"?([0-9]+(\.[0-9]+)?|[0-9]*\.[0-9]+) { 
                                     return leafAlloc(FLOAT_LITERAL); }
@@ -152,42 +155,10 @@ yield                           {   return leafAlloc(YIELD); }
                                 }
 .                               {   // Pass any uncaught character as itself.
                                     // return leafAlloc(yytext[0]);
-                                    __yyerror("Unrecognized token", LEXICAL_ERROR);
+                                    __yyerror("Unrecognized token", LEXICAL_ERROR, lineno, 1);
                                 }
 
 %%
-
-// Initialize the token struct.
-/* struct token *buildToken(int type, char *text){
-    struct token *t = malloc(sizeof(struct token));
-    t->category = type;
-    t->text = malloc(strlen(text));
-    strcpy(t->text, text);
-    t->lineno = lineno;
-    t->filename = filename;
-    t->ival = -1;
-    t->dval = -1;
-    t->sval = NULL;
-    switch(type){
-        case INTEGER_LITERAL:
-            sscanf(text, "%d", &t->ival);
-            break;
-        case FLOAT_LITERAL:
-            sscanf(text, "%lf", &t->dval);
-            break;
-        case STRING_LITERAL:
-            t->sval = malloc(strlen(text));
-            string_literal_parser(text, t->sval);
-            break;
-        case CHAR_LITERAL:
-            t->ival = char_literal_parser(text);
-            if (t->ival == -1){
-                printf("Error: Not a character literal.\n");
-            }
-            break;
-    }
-    return t;
-} */
 
 // Clear the flex buffer.
 void clearFlexBuffer(){
@@ -196,7 +167,7 @@ void clearFlexBuffer(){
 
 // Allocate a token node within the tree.
 int leafAlloc(int i){
-    struct token *t = buildToken(i, yytext, lineno, filename);
+    struct token *t = buildToken(i, yytext, lineno, getFileName());
     yylval.treeptr = malloc(sizeof(struct tree));
 
     yylval.treeptr->id = getTreeId();
@@ -207,8 +178,5 @@ int leafAlloc(int i){
         yylval.treeptr->kids[i] = NULL;
     }
     yylval.treeptr->leaf = t;
-    
-    // printf("Leaf node allocated!");
-    // printNode(yylval.treeptr, 2);
     return i;
 }

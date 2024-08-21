@@ -102,10 +102,10 @@ void print_graph2(struct tree *t, FILE *f) {
     }
 }
 
-void print_graph(struct tree *t, char *filename)
+void print_graph(struct tree *t, char *file)
 {
-    FILE *f = fopen(filename, "w"); /* should check for NULL */
-    printf("Writing dotfile to %s\n", filename);
+    FILE *f = fopen(file, "w"); /* should check for NULL */
+    printf("Writing dotfile to %s\n", file);
     fprintf(f, "digraph {\n");
     print_graph2(t, f);
     fprintf(f, "}\n");

@@ -32,8 +32,9 @@
 // #define YYSTYPE struct node *
 extern int yylex();
 extern void yyerror(char const *s);
-void __yyerror(char const *s, int yystate);
-#define yyerror(s) __yyerror(s, yystate)
+void __yyerror(char *s, int errorCode, int lineno, int returnType);
+int getLineNo();
+#define yyerror(s) __yyerror(s, yystate, getLineNo(), 2)
 
 %}
 %debug
@@ -1261,6 +1262,7 @@ ty_prim : %prec IDENTIFIER path_generic_args_without_colons    { $$ = $1; }
         | UNDERSCORE                                                { $$ = $1; }
         | ty_bare_fn                                               { $$ = $1; }
         | for_in_type                                             { $$ = $1; }
+        /* | LEFT_BRACKET IDENTIFIER SEMICOLON expr RIGHT_BRACKET { $$ = treealloc(TY_PRIM_R, "ty_prim", 5, $1, $2, $3, $4, $5); } */
         ;
 
 ty_bare_fn :                      FN ty_fn_decl { $$ = treealloc(TY_BARE_FN_R, "ty_bare_fn", 2, $1, $2); }

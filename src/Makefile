@@ -10,8 +10,8 @@ OUTPUT = fec
 MAIN_FILE = main.c
 FLEX_FILE = rustlex.l
 BISON_FILE = rustparse.y
-C_FILES = token.c tree.c graphicTree.c hashtable.c symtab.c
-HEADER_FILES = token.h tree.h parserRules.h graphicTree.h hashtable.h symtab.h
+C_FILES = token.c tree.c graphicTree.c hashtable.c symtab.c linkedlist.c semanticAnalyzer.c
+HEADER_FILES = token.h tree.h parserRules.h graphicTree.h hashtable.h symtab.h linkedlist.h semanticAnalyzer.h
 
 # Compilers
 CC = gcc
@@ -23,7 +23,8 @@ C_FLAGS = $(W_FLAGS) $(LINK_FLAGS) -Werror
 O_FLAGS = $(W_FLAGS) -c
 
 # generated file names (for cleanup)
-BUILDER_FILES = $(FLEX_FILE:.l=.c) $(BISON_FILE:.y=.c) $(BISON_FILE:.y=.h)
+BUILDER_FILES = $(FLEX_FILE:.l=.c) $(BISON_FILE:.y=.c)
+#$(BISON_FILE:.y=.h)
 OBJECTS = $(FLEX_FILE:.l=.o) $(BISON_FILE:.y=.o) $(C_FILES:.c=.o)
 
 # Builder functions
